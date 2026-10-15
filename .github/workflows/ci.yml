@@ -2,7 +2,7 @@ name: CI
 
 # Runs the test suite automatically on every push/PR to main, so the repo
 # always shows whether the code actually works -- not just that it was
-# committed. All 38 tests use synthetic or small committed sample data
+# committed. All tests use synthetic or small committed sample data
 # (data/processed/), so this needs no access to the (gitignored) raw
 # dataset in data/raw/.
 
@@ -30,4 +30,13 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest -v
+        run: pytest -v --junitxml=test-results.xml --html=test-report.html --self-contained-html
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-py${{ matrix.python-version }}
+          path: |
+            test-results.xml
+            test-report.html

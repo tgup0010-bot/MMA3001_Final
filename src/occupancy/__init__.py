@@ -10,6 +10,21 @@ analysis and an unbroken-interval audit of every sensor.
 
 See the project README and ``docs/report`` for the full engineering
 context, validation methodology and results.
+
+Modules:
+
+- `occupancy.co2_integration` -- Newton-Cotes numerical integration of CO2 concentration over time.
+- `occupancy.co2_models` -- the four regression methods taught in MMA3001 Week 5, applied to CO2 prediction.
+- `occupancy.co2_regression` -- predict CO2 concentration from its own history and building occupancy.
+- `occupancy.data_loading` -- loading and basic validation of the raw occupancy sensor log.
+- `occupancy.env_sensors` -- loading and tidying of the raw environmental sensor log.
+- `occupancy.evaluation` -- chronological train/test splitting and prediction-quality metrics.
+- `occupancy.external_weather` -- loading of real Bureau of Meteorology daily weather observations.
+- `occupancy.preprocessing` -- convert the occupancy event log into a regular per-room time grid.
+- `occupancy.sensor_intervals` -- unbroken-interval audit of the environmental sensors.
+- `occupancy.sensor_matching` -- data-driven attempt to link environmental sensors to occupancy zones.
+- `occupancy.sensors` -- friendly labels for the environmental sensor identifiers used in the data.
+- `occupancy.weather_comparison` -- compare one environmental sensor's readings against real outdoor weather.
 """
 
 from occupancy.co2_models import (

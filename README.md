@@ -76,8 +76,9 @@ Raw data files are not committed (see [`data/raw/README.md`](data/raw/README.md)
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
 ├── tests/               pytest unit tests (38, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
-├── docs/MMA3001_Presentation.pptx   12-slide presentation
-├── reports/             JSON experiment results
+├── docs/MMA3001_Presentation.pptx   13-slide presentation
+├── docs/api/            HTML API documentation (pdoc, one page per module)
+├── reports/             JSON experiment results + pytest test report (HTML, JUnit XML, text)
 └── data/                Raw data (gitignored) + processed samples
 ```
 
@@ -102,6 +103,20 @@ python scripts/co2_prediction_experiment.py   # CO2 regression (all 4 models)
 python scripts/co2_integration_analysis.py    # Numerical integration analysis
 python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-sensor experiments
 pytest                                         # Run all 38 tests
+```
+
+## Tests and Documentation
+
+The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **38 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
+
+To regenerate the test report and the API docs after changing the code:
+
+```bash
+pytest -v --junitxml=reports/test_report.xml --html=reports/test_report.html --self-contained-html | tee reports/test_report.txt
+pdoc -o docs/api occupancy occupancy.co2_integration occupancy.co2_models occupancy.co2_regression \
+    occupancy.data_loading occupancy.env_sensors occupancy.evaluation occupancy.external_weather \
+    occupancy.preprocessing occupancy.sensor_intervals occupancy.sensor_matching occupancy.sensors \
+    occupancy.weather_comparison
 ```
 
 ## AI Use
