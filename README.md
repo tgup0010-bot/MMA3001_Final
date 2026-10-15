@@ -1,6 +1,6 @@
 # MMA3001 Project — Indoor CO2 Prediction
 
-[![CI](https://github.com/tgup0010-bot/MMA3001-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/tgup0010-bot/MMA3001-Project/actions/workflows/ci.yml)
+[![CI](https://github.com/tgup0010-bot/Trial/actions/workflows/ci.yml/badge.svg)](https://github.com/tgup0010-bot/Trial/actions/workflows/ci.yml)
 
 Individual project for MMA3001 (Numerical Methods and Machine Learning), Monash University, 2026 S2.
 
