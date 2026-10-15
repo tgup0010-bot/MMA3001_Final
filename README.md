@@ -4,6 +4,8 @@
 
 Individual project for MMA3001 (Numerical Methods and Machine Learning), Monash University, 2026 S2.
 
+Author: Tanmay Gupta
+
 ## Engineering Problem
 
 Indoor CO2 rises when rooms are occupied and ventilation is insufficient. Above 800–1000 ppm, occupants experience reduced alertness. Most building systems react *after* CO2 is already too high.
