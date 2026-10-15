@@ -72,6 +72,15 @@
                     <a class="function" href="#sensor_label">sensor_label</a>
             </li>
             <li>
+                    <a class="function" href="#find_unbroken_intervals">find_unbroken_intervals</a>
+            </li>
+            <li>
+                    <a class="function" href="#interval_audit">interval_audit</a>
+            </li>
+            <li>
+                    <a class="function" href="#usable_rows">usable_rows</a>
+            </li>
+            <li>
                     <a class="function" href="#build_correlation_matrix">build_correlation_matrix</a>
             </li>
             <li>
@@ -109,8 +118,8 @@ and building occupancy, using all four Week 5 regression methods
 (Linear Regression, Decision Tree, SVR, Neural Network).</p>
 
 <p>Also includes Week 6 numerical integration of accumulated CO2 exposure,
-sensor selection (BoM external-weather validation) and sensor-matching
-analysis.</p>
+sensor selection (BoM external-weather validation), sensor-matching
+analysis and an unbroken-interval audit of every sensor.</p>
 
 <p>See the project README and <code>docs/report</code> for the full engineering
 context, validation methodology and results.</p>
@@ -127,8 +136,8 @@ context, validation methodology and results.</p>
 </span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a><span class="sd">(Linear Regression, Decision Tree, SVR, Neural Network).</span>
 </span><span id="L-6"><a href="#L-6"><span class="linenos"> 6</span></a>
 </span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a><span class="sd">Also includes Week 6 numerical integration of accumulated CO2 exposure,</span>
-</span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a><span class="sd">sensor selection (BoM external-weather validation) and sensor-matching</span>
-</span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a><span class="sd">analysis.</span>
+</span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a><span class="sd">sensor selection (BoM external-weather validation), sensor-matching</span>
+</span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a><span class="sd">analysis and an unbroken-interval audit of every sensor.</span>
 </span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a>
 </span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a><span class="sd">See the project README and ``docs/report`` for the full engineering</span>
 </span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a><span class="sd">context, validation methodology and results.</span>
@@ -157,40 +166,44 @@ context, validation methodology and results.</p>
 </span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a>    <span class="n">evaluate_regression_predictions</span><span class="p">,</span>
 </span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a><span class="p">)</span>
 </span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.external_weather</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_bom_weather</span>
-</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.sensor_matching</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_correlation_matrix</span><span class="p">,</span> <span class="n">lagged_correlation</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.sensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">sensor_label</span>
-</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.weather_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">compare_to_bom</span><span class="p">,</span> <span class="n">daily_indoor_series</span>
-</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a>
-</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a>    <span class="c1"># CO2 regression (Week 5)</span>
-</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a>    <span class="s2">"build_co2_supervised_dataset"</span><span class="p">,</span>
-</span><span id="L-45"><a href="#L-45"><span class="linenos">45</span></a>    <span class="s2">"building_occupancy_series"</span><span class="p">,</span>
-</span><span id="L-46"><a href="#L-46"><span class="linenos">46</span></a>    <span class="s2">"co2_series"</span><span class="p">,</span>
-</span><span id="L-47"><a href="#L-47"><span class="linenos">47</span></a>    <span class="s2">"build_linear_regression_pipeline"</span><span class="p">,</span>
-</span><span id="L-48"><a href="#L-48"><span class="linenos">48</span></a>    <span class="s2">"build_decision_tree_regression_pipeline"</span><span class="p">,</span>
-</span><span id="L-49"><a href="#L-49"><span class="linenos">49</span></a>    <span class="s2">"build_svr_pipeline"</span><span class="p">,</span>
-</span><span id="L-50"><a href="#L-50"><span class="linenos">50</span></a>    <span class="s2">"build_neural_network_regression_pipeline"</span><span class="p">,</span>
-</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a>    <span class="c1"># Numerical integration (Week 6)</span>
-</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a>    <span class="s2">"trapezoidal_integral"</span><span class="p">,</span>
-</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a>    <span class="s2">"trapezoidal_integral_gap_aware"</span><span class="p">,</span>
-</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a>    <span class="s2">"simpsons_integral"</span><span class="p">,</span>
-</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a>    <span class="s2">"richardson_order_check"</span><span class="p">,</span>
-</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a>    <span class="c1"># Evaluation</span>
-</span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a>    <span class="s2">"chronological_split"</span><span class="p">,</span>
-</span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a>    <span class="s2">"evaluate_regression_predictions"</span><span class="p">,</span>
-</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="c1"># Environmental sensors</span>
-</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>    <span class="s2">"load_env_sensor_log"</span><span class="p">,</span>
-</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a>    <span class="s2">"pivot_variable"</span><span class="p">,</span>
-</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a>    <span class="s2">"sensor_label"</span><span class="p">,</span>
-</span><span id="L-63"><a href="#L-63"><span class="linenos">63</span></a>    <span class="c1"># Sensor validation</span>
-</span><span id="L-64"><a href="#L-64"><span class="linenos">64</span></a>    <span class="s2">"build_correlation_matrix"</span><span class="p">,</span>
-</span><span id="L-65"><a href="#L-65"><span class="linenos">65</span></a>    <span class="s2">"lagged_correlation"</span><span class="p">,</span>
-</span><span id="L-66"><a href="#L-66"><span class="linenos">66</span></a>    <span class="s2">"load_bom_weather"</span><span class="p">,</span>
-</span><span id="L-67"><a href="#L-67"><span class="linenos">67</span></a>    <span class="s2">"compare_to_bom"</span><span class="p">,</span>
-</span><span id="L-68"><a href="#L-68"><span class="linenos">68</span></a>    <span class="s2">"daily_indoor_series"</span><span class="p">,</span>
-</span><span id="L-69"><a href="#L-69"><span class="linenos">69</span></a><span class="p">]</span>
-</span><span id="L-70"><a href="#L-70"><span class="linenos">70</span></a>
-</span><span id="L-71"><a href="#L-71"><span class="linenos">71</span></a><span class="n">__version__</span> <span class="o">=</span> <span class="s2">"0.2.0"</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.sensor_intervals</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_unbroken_intervals</span><span class="p">,</span> <span class="n">interval_audit</span><span class="p">,</span> <span class="n">usable_rows</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.sensor_matching</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_correlation_matrix</span><span class="p">,</span> <span class="n">lagged_correlation</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.sensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">sensor_label</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">occupancy.weather_comparison</span><span class="w"> </span><span class="kn">import</span> <span class="n">compare_to_bom</span><span class="p">,</span> <span class="n">daily_indoor_series</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a>
+</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a>    <span class="c1"># CO2 regression (Week 5)</span>
+</span><span id="L-45"><a href="#L-45"><span class="linenos">45</span></a>    <span class="s2">"build_co2_supervised_dataset"</span><span class="p">,</span>
+</span><span id="L-46"><a href="#L-46"><span class="linenos">46</span></a>    <span class="s2">"building_occupancy_series"</span><span class="p">,</span>
+</span><span id="L-47"><a href="#L-47"><span class="linenos">47</span></a>    <span class="s2">"co2_series"</span><span class="p">,</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos">48</span></a>    <span class="s2">"build_linear_regression_pipeline"</span><span class="p">,</span>
+</span><span id="L-49"><a href="#L-49"><span class="linenos">49</span></a>    <span class="s2">"build_decision_tree_regression_pipeline"</span><span class="p">,</span>
+</span><span id="L-50"><a href="#L-50"><span class="linenos">50</span></a>    <span class="s2">"build_svr_pipeline"</span><span class="p">,</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a>    <span class="s2">"build_neural_network_regression_pipeline"</span><span class="p">,</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a>    <span class="c1"># Numerical integration (Week 6)</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a>    <span class="s2">"trapezoidal_integral"</span><span class="p">,</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a>    <span class="s2">"trapezoidal_integral_gap_aware"</span><span class="p">,</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a>    <span class="s2">"simpsons_integral"</span><span class="p">,</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a>    <span class="s2">"richardson_order_check"</span><span class="p">,</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a>    <span class="c1"># Evaluation</span>
+</span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a>    <span class="s2">"chronological_split"</span><span class="p">,</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="s2">"evaluate_regression_predictions"</span><span class="p">,</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>    <span class="c1"># Environmental sensors</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a>    <span class="s2">"load_env_sensor_log"</span><span class="p">,</span>
+</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a>    <span class="s2">"pivot_variable"</span><span class="p">,</span>
+</span><span id="L-63"><a href="#L-63"><span class="linenos">63</span></a>    <span class="s2">"sensor_label"</span><span class="p">,</span>
+</span><span id="L-64"><a href="#L-64"><span class="linenos">64</span></a>    <span class="s2">"find_unbroken_intervals"</span><span class="p">,</span>
+</span><span id="L-65"><a href="#L-65"><span class="linenos">65</span></a>    <span class="s2">"interval_audit"</span><span class="p">,</span>
+</span><span id="L-66"><a href="#L-66"><span class="linenos">66</span></a>    <span class="s2">"usable_rows"</span><span class="p">,</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos">67</span></a>    <span class="c1"># Sensor validation</span>
+</span><span id="L-68"><a href="#L-68"><span class="linenos">68</span></a>    <span class="s2">"build_correlation_matrix"</span><span class="p">,</span>
+</span><span id="L-69"><a href="#L-69"><span class="linenos">69</span></a>    <span class="s2">"lagged_correlation"</span><span class="p">,</span>
+</span><span id="L-70"><a href="#L-70"><span class="linenos">70</span></a>    <span class="s2">"load_bom_weather"</span><span class="p">,</span>
+</span><span id="L-71"><a href="#L-71"><span class="linenos">71</span></a>    <span class="s2">"compare_to_bom"</span><span class="p">,</span>
+</span><span id="L-72"><a href="#L-72"><span class="linenos">72</span></a>    <span class="s2">"daily_indoor_series"</span><span class="p">,</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos">73</span></a><span class="p">]</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos">74</span></a>
+</span><span id="L-75"><a href="#L-75"><span class="linenos">75</span></a><span class="n">__version__</span> <span class="o">=</span> <span class="s2">"0.2.0"</span>
 </span></pre></div>
 
 
@@ -200,7 +213,7 @@ context, validation methodology and results.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">build_co2_supervised_dataset</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">co2</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">occupancy</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span>:</span></span>
+        <span class="name">build_co2_supervised_dataset</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">co2</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">occupancy</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span>:</span></span>
 
                 <label class="view-source-button" for="build_co2_supervised_dataset-view-source"><span>View Source</span></label>
 
@@ -286,7 +299,7 @@ context, validation methodology and results.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">building_occupancy_series</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">occ_resampled</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">room_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'floorspaceid'</span>,</span><span class="param">	<span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'collecteddate'</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>:</span></span>
+        <span class="name">building_occupancy_series</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">occ_resampled</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">room_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'floorspaceid'</span>,</span><span class="param">	<span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'collecteddate'</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>:</span></span>
 
                 <label class="view-source-button" for="building_occupancy_series-view-source"><span>View Source</span></label>
 
@@ -352,7 +365,7 @@ context, validation methodology and results.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">co2_series</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">sensorid</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">bin_size</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>:</span></span>
+        <span class="name">co2_series</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">sensorid</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">bin_size</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>:</span></span>
 
                 <label class="view-source-button" for="co2_series-view-source"><span>View Source</span></label>
 
@@ -516,7 +529,7 @@ override either via kwargs.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">trapezoidal_integral</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">times</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">values</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span></span><span class="return-annotation">) -> <span class="nb">float</span>:</span></span>
+        <span class="name">trapezoidal_integral</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">times</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">values</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span></span><span class="return-annotation">) -> <span class="nb">float</span>:</span></span>
 
                 <label class="view-source-button" for="trapezoidal_integral-view-source"><span>View Source</span></label>
 
@@ -585,7 +598,7 @@ consecutive pair's <em>actual</em> time gap.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">trapezoidal_integral_gap_aware</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">times</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">values</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">max_gap_hours</span><span class="p">:</span> <span class="nb">float</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+        <span class="name">trapezoidal_integral_gap_aware</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">times</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">values</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">max_gap_hours</span><span class="p">:</span> <span class="nb">float</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
 
                 <label class="view-source-button" for="trapezoidal_integral_gap_aware-view-source"><span>View Source</span></label>
 
@@ -671,7 +684,7 @@ reported so the coverage gap is visible, not silently absorbed.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">simpsons_integral</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">values</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">bin_hours</span><span class="p">:</span> <span class="nb">float</span></span><span class="return-annotation">) -> <span class="nb">float</span>:</span></span>
+        <span class="name">simpsons_integral</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">values</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>, </span><span class="param"><span class="n">bin_hours</span><span class="p">:</span> <span class="nb">float</span></span><span class="return-annotation">) -> <span class="nb">float</span>:</span></span>
 
                 <label class="view-source-button" for="simpsons_integral-view-source"><span>View Source</span></label>
 
@@ -805,7 +818,7 @@ as Week 6.2 describes -- not a claim of the true error.</p>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">chronological_split</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">table</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'collecteddate'</span>,</span><span class="param">	<span class="n">train_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">_libs</span><span class="o">.</span><span class="n">tslibs</span><span class="o">.</span><span class="n">timestamps</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">]</span>:</span></span>
+        <span class="name">chronological_split</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">table</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'collecteddate'</span>,</span><span class="param">	<span class="n">train_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">]</span>:</span></span>
 
                 <label class="view-source-button" for="chronological_split-view-source"><span>View Source</span></label>
 
@@ -942,7 +955,7 @@ boundary at the same wall-clock moment for every room, which is what
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">load_env_sensor_log</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
+        <span class="name">load_env_sensor_log</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">_local</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
 
                 <label class="view-source-button" for="load_env_sensor_log-view-source"><span>View Source</span></label>
 
@@ -1032,7 +1045,7 @@ single variable as a per-sensor time series.
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">pivot_variable</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">long_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
+        <span class="name">pivot_variable</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">long_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>, </span><span class="param"><span class="n">variable</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
 
                 <label class="view-source-button" for="pivot_variable-view-source"><span>View Source</span></label>
 
@@ -1128,12 +1141,168 @@ single variable as a per-sensor time series.
 
 
                 </section>
+                <section id="find_unbroken_intervals">
+                            <input id="find_unbroken_intervals-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">find_unbroken_intervals</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">series</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
+
+                <label class="view-source-button" for="find_unbroken_intervals-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#find_unbroken_intervals"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="find_unbroken_intervals-25"><a href="#find_unbroken_intervals-25"><span class="linenos">25</span></a><span class="k">def</span><span class="w"> </span><span class="nf">find_unbroken_intervals</span><span class="p">(</span><span class="n">series</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+</span><span id="find_unbroken_intervals-26"><a href="#find_unbroken_intervals-26"><span class="linenos">26</span></a><span class="w">    </span><span class="sd">"""Find runs of consecutive non-missing values on a regular time grid.</span>
+</span><span id="find_unbroken_intervals-27"><a href="#find_unbroken_intervals-27"><span class="linenos">27</span></a>
+</span><span id="find_unbroken_intervals-28"><a href="#find_unbroken_intervals-28"><span class="linenos">28</span></a><span class="sd">    Args:</span>
+</span><span id="find_unbroken_intervals-29"><a href="#find_unbroken_intervals-29"><span class="linenos">29</span></a><span class="sd">        series: A regularly binned series (e.g. the output of</span>
+</span><span id="find_unbroken_intervals-30"><a href="#find_unbroken_intervals-30"><span class="linenos">30</span></a><span class="sd">            :func:`occupancy.co2_regression.co2_series`), where missing</span>
+</span><span id="find_unbroken_intervals-31"><a href="#find_unbroken_intervals-31"><span class="linenos">31</span></a><span class="sd">            bins are ``NaN``.</span>
+</span><span id="find_unbroken_intervals-32"><a href="#find_unbroken_intervals-32"><span class="linenos">32</span></a>
+</span><span id="find_unbroken_intervals-33"><a href="#find_unbroken_intervals-33"><span class="linenos">33</span></a><span class="sd">    Returns:</span>
+</span><span id="find_unbroken_intervals-34"><a href="#find_unbroken_intervals-34"><span class="linenos">34</span></a><span class="sd">        A DataFrame with one row per unbroken interval and columns</span>
+</span><span id="find_unbroken_intervals-35"><a href="#find_unbroken_intervals-35"><span class="linenos">35</span></a><span class="sd">        ``start``, ``end`` (index labels of the first and last bin) and</span>
+</span><span id="find_unbroken_intervals-36"><a href="#find_unbroken_intervals-36"><span class="linenos">36</span></a><span class="sd">        ``n_bins``, in time order. Empty if ``series`` has no values.</span>
+</span><span id="find_unbroken_intervals-37"><a href="#find_unbroken_intervals-37"><span class="linenos">37</span></a><span class="sd">    """</span>
+</span><span id="find_unbroken_intervals-38"><a href="#find_unbroken_intervals-38"><span class="linenos">38</span></a>    <span class="n">present</span> <span class="o">=</span> <span class="n">series</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span>
+</span><span id="find_unbroken_intervals-39"><a href="#find_unbroken_intervals-39"><span class="linenos">39</span></a>    <span class="n">run_id</span> <span class="o">=</span> <span class="p">(</span><span class="n">present</span> <span class="o">!=</span> <span class="n">present</span><span class="o">.</span><span class="n">shift</span><span class="p">())</span><span class="o">.</span><span class="n">cumsum</span><span class="p">()</span>
+</span><span id="find_unbroken_intervals-40"><a href="#find_unbroken_intervals-40"><span class="linenos">40</span></a>    <span class="n">runs</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="find_unbroken_intervals-41"><a href="#find_unbroken_intervals-41"><span class="linenos">41</span></a>        <span class="n">series</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_series</span><span class="p">()[</span><span class="n">present</span><span class="p">]</span>
+</span><span id="find_unbroken_intervals-42"><a href="#find_unbroken_intervals-42"><span class="linenos">42</span></a>        <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">run_id</span><span class="p">[</span><span class="n">present</span><span class="p">])</span>
+</span><span id="find_unbroken_intervals-43"><a href="#find_unbroken_intervals-43"><span class="linenos">43</span></a>        <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">"min"</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">"max"</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="s2">"size"</span><span class="p">)</span>
+</span><span id="find_unbroken_intervals-44"><a href="#find_unbroken_intervals-44"><span class="linenos">44</span></a>    <span class="p">)</span>
+</span><span id="find_unbroken_intervals-45"><a href="#find_unbroken_intervals-45"><span class="linenos">45</span></a>    <span class="k">return</span> <span class="n">runs</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Find runs of consecutive non-missing values on a regular time grid.</p>
+
+<p>Args:
+    series: A regularly binned series (e.g. the output of
+        <code><a href="#co2_series">occupancy.co2_regression.co2_series()</a></code>), where missing
+        bins are <code>NaN</code>.</p>
+
+<p>Returns:
+    A DataFrame with one row per unbroken interval and columns
+    <code>start</code>, <code>end</code> (index labels of the first and last bin) and
+    <code>n_bins</code>, in time order. Empty if <code>series</code> has no values.</p>
+</div>
+
+
+                </section>
+                <section id="interval_audit">
+                            <input id="interval_audit-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">interval_audit</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">sensorids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>,</span><span class="param">	<span class="o">*</span>,</span><span class="param">	<span class="n">bin_size</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'15min'</span>,</span><span class="param">	<span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
+
+                <label class="view-source-button" for="interval_audit-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#interval_audit"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="interval_audit-58"><a href="#interval_audit-58"><span class="linenos"> 58</span></a><span class="k">def</span><span class="w"> </span><span class="nf">interval_audit</span><span class="p">(</span>
+</span><span id="interval_audit-59"><a href="#interval_audit-59"><span class="linenos"> 59</span></a>    <span class="n">env_long</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+</span><span id="interval_audit-60"><a href="#interval_audit-60"><span class="linenos"> 60</span></a>    <span class="n">sensorids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+</span><span id="interval_audit-61"><a href="#interval_audit-61"><span class="linenos"> 61</span></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="interval_audit-62"><a href="#interval_audit-62"><span class="linenos"> 62</span></a>    <span class="n">bin_size</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"15min"</span><span class="p">,</span>
+</span><span id="interval_audit-63"><a href="#interval_audit-63"><span class="linenos"> 63</span></a>    <span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+</span><span id="interval_audit-64"><a href="#interval_audit-64"><span class="linenos"> 64</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+</span><span id="interval_audit-65"><a href="#interval_audit-65"><span class="linenos"> 65</span></a><span class="w">    </span><span class="sd">"""Summarise every sensor's usable unbroken intervals.</span>
+</span><span id="interval_audit-66"><a href="#interval_audit-66"><span class="linenos"> 66</span></a>
+</span><span id="interval_audit-67"><a href="#interval_audit-67"><span class="linenos"> 67</span></a><span class="sd">    Args:</span>
+</span><span id="interval_audit-68"><a href="#interval_audit-68"><span class="linenos"> 68</span></a><span class="sd">        env_long: Output of :func:`occupancy.env_sensors.load_env_sensor_log`.</span>
+</span><span id="interval_audit-69"><a href="#interval_audit-69"><span class="linenos"> 69</span></a><span class="sd">        sensorids: Sensors to audit.</span>
+</span><span id="interval_audit-70"><a href="#interval_audit-70"><span class="linenos"> 70</span></a><span class="sd">        bin_size: Pandas frequency string for the regular grid.</span>
+</span><span id="interval_audit-71"><a href="#interval_audit-71"><span class="linenos"> 71</span></a><span class="sd">        rolling_window: Bins of history each supervised row needs.</span>
+</span><span id="interval_audit-72"><a href="#interval_audit-72"><span class="linenos"> 72</span></a>
+</span><span id="interval_audit-73"><a href="#interval_audit-73"><span class="linenos"> 73</span></a><span class="sd">    Returns:</span>
+</span><span id="interval_audit-74"><a href="#interval_audit-74"><span class="linenos"> 74</span></a><span class="sd">        One row per sensor with ``raw_rows`` (CO2 readings in the log),</span>
+</span><span id="interval_audit-75"><a href="#interval_audit-75"><span class="linenos"> 75</span></a><span class="sd">        ``distinct_timestamps``, ``distinct_values``, the first/last</span>
+</span><span id="interval_audit-76"><a href="#interval_audit-76"><span class="linenos"> 76</span></a><span class="sd">        distinct reading time, ``n_intervals`` and ``hours`` (intervals</span>
+</span><span id="interval_audit-77"><a href="#interval_audit-77"><span class="linenos"> 77</span></a><span class="sd">        long enough to yield at least one row) and ``usable_rows``.</span>
+</span><span id="interval_audit-78"><a href="#interval_audit-78"><span class="linenos"> 78</span></a><span class="sd">    """</span>
+</span><span id="interval_audit-79"><a href="#interval_audit-79"><span class="linenos"> 79</span></a>    <span class="n">co2</span> <span class="o">=</span> <span class="n">env_long</span><span class="p">[</span><span class="n">env_long</span><span class="p">[</span><span class="s2">"variable"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"Carbon dioxide"</span><span class="p">]</span>
+</span><span id="interval_audit-80"><a href="#interval_audit-80"><span class="linenos"> 80</span></a>    <span class="n">min_bins</span> <span class="o">=</span> <span class="n">rolling_window</span> <span class="o">+</span> <span class="mi">1</span>
+</span><span id="interval_audit-81"><a href="#interval_audit-81"><span class="linenos"> 81</span></a>    <span class="n">bin_hours</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">bin_size</span><span class="p">)</span> <span class="o">/</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="s2">"1h"</span><span class="p">)</span>
+</span><span id="interval_audit-82"><a href="#interval_audit-82"><span class="linenos"> 82</span></a>
+</span><span id="interval_audit-83"><a href="#interval_audit-83"><span class="linenos"> 83</span></a>    <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="interval_audit-84"><a href="#interval_audit-84"><span class="linenos"> 84</span></a>    <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">sensorids</span><span class="p">:</span>
+</span><span id="interval_audit-85"><a href="#interval_audit-85"><span class="linenos"> 85</span></a>        <span class="n">readings</span> <span class="o">=</span> <span class="n">co2</span><span class="p">[</span><span class="n">co2</span><span class="p">[</span><span class="s2">"sensorid"</span><span class="p">]</span> <span class="o">==</span> <span class="n">sid</span><span class="p">]</span>
+</span><span id="interval_audit-86"><a href="#interval_audit-86"><span class="linenos"> 86</span></a>        <span class="n">intervals</span> <span class="o">=</span> <span class="n">find_unbroken_intervals</span><span class="p">(</span><span class="n">co2_series</span><span class="p">(</span><span class="n">env_long</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">bin_size</span><span class="p">))</span>
+</span><span id="interval_audit-87"><a href="#interval_audit-87"><span class="linenos"> 87</span></a>        <span class="n">long_enough</span> <span class="o">=</span> <span class="n">intervals</span><span class="p">[</span><span class="n">intervals</span><span class="p">[</span><span class="s2">"n_bins"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">min_bins</span><span class="p">]</span>
+</span><span id="interval_audit-88"><a href="#interval_audit-88"><span class="linenos"> 88</span></a>        <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span id="interval_audit-89"><a href="#interval_audit-89"><span class="linenos"> 89</span></a>            <span class="p">{</span>
+</span><span id="interval_audit-90"><a href="#interval_audit-90"><span class="linenos"> 90</span></a>                <span class="s2">"sensorid"</span><span class="p">:</span> <span class="n">sid</span><span class="p">,</span>
+</span><span id="interval_audit-91"><a href="#interval_audit-91"><span class="linenos"> 91</span></a>                <span class="s2">"raw_rows"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">readings</span><span class="p">),</span>
+</span><span id="interval_audit-92"><a href="#interval_audit-92"><span class="linenos"> 92</span></a>                <span class="s2">"distinct_timestamps"</span><span class="p">:</span> <span class="n">readings</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">(),</span>
+</span><span id="interval_audit-93"><a href="#interval_audit-93"><span class="linenos"> 93</span></a>                <span class="s2">"distinct_values"</span><span class="p">:</span> <span class="n">readings</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">(),</span>
+</span><span id="interval_audit-94"><a href="#interval_audit-94"><span class="linenos"> 94</span></a>                <span class="s2">"first_reading"</span><span class="p">:</span> <span class="n">readings</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+</span><span id="interval_audit-95"><a href="#interval_audit-95"><span class="linenos"> 95</span></a>                <span class="s2">"last_reading"</span><span class="p">:</span> <span class="n">readings</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+</span><span id="interval_audit-96"><a href="#interval_audit-96"><span class="linenos"> 96</span></a>                <span class="s2">"n_intervals"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">long_enough</span><span class="p">),</span>
+</span><span id="interval_audit-97"><a href="#interval_audit-97"><span class="linenos"> 97</span></a>                <span class="s2">"hours"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">long_enough</span><span class="p">[</span><span class="s2">"n_bins"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">*</span> <span class="n">bin_hours</span><span class="p">),</span>
+</span><span id="interval_audit-98"><a href="#interval_audit-98"><span class="linenos"> 98</span></a>                <span class="s2">"usable_rows"</span><span class="p">:</span> <span class="n">usable_rows</span><span class="p">(</span><span class="n">long_enough</span><span class="p">,</span> <span class="n">rolling_window</span><span class="p">),</span>
+</span><span id="interval_audit-99"><a href="#interval_audit-99"><span class="linenos"> 99</span></a>            <span class="p">}</span>
+</span><span id="interval_audit-100"><a href="#interval_audit-100"><span class="linenos">100</span></a>        <span class="p">)</span>
+</span><span id="interval_audit-101"><a href="#interval_audit-101"><span class="linenos">101</span></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Summarise every sensor's usable unbroken intervals.</p>
+
+<p>Args:
+    env_long: Output of <code><a href="#load_env_sensor_log">occupancy.env_sensors.load_env_sensor_log()</a></code>.
+    sensorids: Sensors to audit.
+    bin_size: Pandas frequency string for the regular grid.
+    rolling_window: Bins of history each supervised row needs.</p>
+
+<p>Returns:
+    One row per sensor with <code>raw_rows</code> (CO2 readings in the log),
+    <code>distinct_timestamps</code>, <code>distinct_values</code>, the first/last
+    distinct reading time, <code>n_intervals</code> and <code>hours</code> (intervals
+    long enough to yield at least one row) and <code><a href="#usable_rows">usable_rows</a></code>.</p>
+</div>
+
+
+                </section>
+                <section id="usable_rows">
+                            <input id="usable_rows-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">usable_rows</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">intervals</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>, </span><span class="param"><span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span></span><span class="return-annotation">) -> <span class="nb">int</span>:</span></span>
+
+                <label class="view-source-button" for="usable_rows-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#usable_rows"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="usable_rows-48"><a href="#usable_rows-48"><span class="linenos">48</span></a><span class="k">def</span><span class="w"> </span><span class="nf">usable_rows</span><span class="p">(</span><span class="n">intervals</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">rolling_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="usable_rows-49"><a href="#usable_rows-49"><span class="linenos">49</span></a><span class="w">    </span><span class="sd">"""Number of supervised rows the intervals can produce.</span>
+</span><span id="usable_rows-50"><a href="#usable_rows-50"><span class="linenos">50</span></a>
+</span><span id="usable_rows-51"><a href="#usable_rows-51"><span class="linenos">51</span></a><span class="sd">    A row needs ``rolling_window`` bins of history (which includes the</span>
+</span><span id="usable_rows-52"><a href="#usable_rows-52"><span class="linenos">52</span></a><span class="sd">    current bin) plus the next bin as its target, so an interval of</span>
+</span><span id="usable_rows-53"><a href="#usable_rows-53"><span class="linenos">53</span></a><span class="sd">    ``n`` bins yields ``n - rolling_window`` rows (none if shorter).</span>
+</span><span id="usable_rows-54"><a href="#usable_rows-54"><span class="linenos">54</span></a><span class="sd">    """</span>
+</span><span id="usable_rows-55"><a href="#usable_rows-55"><span class="linenos">55</span></a>    <span class="k">return</span> <span class="nb">int</span><span class="p">((</span><span class="n">intervals</span><span class="p">[</span><span class="s2">"n_bins"</span><span class="p">]</span> <span class="o">-</span> <span class="n">rolling_window</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Number of supervised rows the intervals can produce.</p>
+
+<p>A row needs <code>rolling_window</code> bins of history (which includes the
+current bin) plus the next bin as its target, so an interval of
+<code>n</code> bins yields <code>n - rolling_window</code> rows (none if shorter).</p>
+</div>
+
+
+                </section>
                 <section id="build_correlation_matrix">
                             <input id="build_correlation_matrix-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">build_correlation_matrix</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">occ_resampled</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">bin_size</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">max_lag_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>,</span><span class="param">	<span class="n">room_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'floorspaceid'</span>,</span><span class="param">	<span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'collecteddate'</span>,</span><span class="param">	<span class="n">min_overlap_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span>:</span></span>
+        <span class="name">build_correlation_matrix</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">occ_resampled</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">bin_size</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">max_lag_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>,</span><span class="param">	<span class="n">room_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'floorspaceid'</span>,</span><span class="param">	<span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'collecteddate'</span>,</span><span class="param">	<span class="n">min_overlap_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span></span><span class="return-annotation">) -> <span class="nb">tuple</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span>:</span></span>
 
                 <label class="view-source-button" for="build_correlation_matrix-view-source"><span>View Source</span></label>
 
@@ -1239,7 +1408,7 @@ single variable as a per-sensor time series.
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">lagged_correlation</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">occupied</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">max_lag_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>,</span><span class="param">	<span class="n">use_diff</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>,</span><span class="param">	<span class="n">min_overlap_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+        <span class="name">lagged_correlation</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">occupied</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">max_lag_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>,</span><span class="param">	<span class="n">use_diff</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>,</span><span class="param">	<span class="n">min_overlap_bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
 
                 <label class="view-source-button" for="lagged_correlation-view-source"><span>View Source</span></label>
 
@@ -1338,7 +1507,7 @@ single variable as a per-sensor time series.
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">load_bom_weather</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">directory</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
+        <span class="name">load_bom_weather</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">directory</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">_local</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>:</span></span>
 
                 <label class="view-source-button" for="load_bom_weather-view-source"><span>View Source</span></label>
 
@@ -1392,7 +1561,7 @@ single variable as a per-sensor time series.
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">compare_to_bom</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">indoor_daily</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">bom_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">outdoor_col</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">min_overlap_days</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">14</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+        <span class="name">compare_to_bom</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">indoor_daily</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>,</span><span class="param">	<span class="n">bom_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">outdoor_col</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">min_overlap_days</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">14</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
 
                 <label class="view-source-button" for="compare_to_bom-view-source"><span>View Source</span></label>
 
@@ -1461,7 +1630,7 @@ single variable as a per-sensor time series.
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">daily_indoor_series</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">sensorid</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">series</span><span class="o">.</span><span class="n">Series</span>:</span></span>
+        <span class="name">daily_indoor_series</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">env_long</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>,</span><span class="param">	<span class="n">sensorid</span><span class="p">:</span> <span class="nb">str</span>,</span><span class="param">	<span class="n">variable</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>:</span></span>
 
                 <label class="view-source-button" for="daily_indoor_series-view-source"><span>View Source</span></label>
 

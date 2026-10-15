@@ -205,7 +205,7 @@
 
 <div class="controls">
   <button id="prev" onclick="changeSlide(-1)" disabled>← Prev</button>
-  <span id="slide-counter">1 / 10</span>
+  <span id="slide-counter">1 / 11</span>
   <button id="next" onclick="changeSlide(1)">Next →</button>
 </div>
 
@@ -222,7 +222,7 @@
   <!-- SLIDE 2: Problem -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 2 of 10</div>
+      <div class="slide-num">Slide 2 of 11</div>
       <h2>The Problem</h2>
     </div>
     <div class="slide-body">
@@ -255,7 +255,7 @@
   <!-- SLIDE 3: Data -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 3 of 10</div>
+      <div class="slide-num">Slide 3 of 11</div>
       <h2>Data — Inputs and Outputs</h2>
     </div>
     <div class="slide-body">
@@ -277,17 +277,16 @@
         <div class="card green">
           <h3>Sensor chosen: 6012002000326</h3>
           <ul>
-            <li>Long, real coverage (3+ years)</li>
+            <li>Longest record of real readings (Sep 2025 – Apr 2026)</li>
             <li>Validated: temp r=+0.84, humidity r=+0.65 vs. Bureau of Meteorology over 222 days</li>
             <li>Confirmed actually measuring something real</li>
           </ul>
         </div>
         <div class="card red">
-          <h3>Other 4 sensors — ruled out</h3>
+          <h3>Other 4 sensors — not the main sensor</h3>
           <ul>
-            <li>2 sensors: frozen internal clock — every reading same timestamp → useless</li>
-            <li>1 sensor: only 4 months of data</li>
-            <li>1 sensor: lower data quality</li>
+            <li>3 sensors: only ever re-send one stale packet (same timestamp, same value) → no real readings</li>
+            <li>Sensor 0869: only 3.5 months of real data — its usable intervals are tested on slide 8</li>
           </ul>
         </div>
       </div>
@@ -297,7 +296,7 @@
   <!-- SLIDE 4: Methods -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 4 of 10</div>
+      <div class="slide-num">Slide 4 of 11</div>
       <h2>Methods — Four Regression Models (Week 5)</h2>
     </div>
     <div class="slide-body">
@@ -330,7 +329,7 @@
   <!-- SLIDE 5: Results -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 5 of 10</div>
+      <div class="slide-num">Slide 5 of 11</div>
       <h2>Results — Model Performance</h2>
     </div>
     <div class="slide-body">
@@ -359,7 +358,7 @@
   <!-- SLIDE 6: Occupancy finding -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 6 of 10</div>
+      <div class="slide-num">Slide 6 of 11</div>
       <h2>Key Finding — Does Occupancy Help?</h2>
     </div>
     <div class="slide-body">
@@ -385,7 +384,7 @@
   <!-- SLIDE 7: Missing data -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 7 of 10</div>
+      <div class="slide-num">Slide 7 of 11</div>
       <h2>Missing Data — What Was Found and How It Was Handled</h2>
     </div>
     <div class="slide-body">
@@ -393,7 +392,7 @@
         <div class="card red">
           <h3>The gap problem</h3>
           <ul>
-            <li>636-day sensor outage in the data</li>
+            <li>636-day gap in real readings</li>
             <li>Readings are not evenly spaced</li>
             <li>84,576 raw candidate rows → only 17,010 usable (20%)</li>
             <li>Rest dropped — filling a 636-day gap with made-up values would be far worse</li>
@@ -403,14 +402,49 @@
           <h3>How it was handled</h3>
           <ul>
             <li>Rows missing any lag/rolling/target value → dropped</li>
-            <li>Integration step needed a gap-aware fix (see next slide)</li>
+            <li>Integration step needed a gap-aware fix (see slide 9)</li>
             <li>Both issues reported explicitly rather than hidden</li>
           </ul>
         </div>
       </div>
       <div class="finding">
         <div class="icon">📋</div>
-        <p><strong>Other data quality issues found along the way:</strong> Two sensors had frozen clocks (discovered by profiling). The occupancy log file named "MayToDec2024" actually covers November 2023 to April 2026 — only found by checking the actual timestamps. The dataset description documents none of this.</p>
+        <p><strong>Other data quality issues found along the way:</strong> Three sensors only ever re-send one stale packet — found by comparing each reading's own time with the server's receive time. The occupancy log file named "MayToDec2024" actually covers November 2023 to April 2026 — only found by checking the actual timestamps. The dataset description documents none of this.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: Multi-sensor intervals -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-num">Slide 8 of 11</div>
+      <h2>Using Every Sensor's Usable Intervals</h2>
+    </div>
+    <div class="slide-body">
+      <p class="lead">Teaching-team suggestion: instead of rejecting whole sensors, use every unbroken interval of at least 75 minutes (1 h history + 15 min target) from any sensor.</p>
+      <table>
+        <tr><th>Sensor</th><th>Real readings</th><th>Usable intervals</th><th>Usable rows</th></tr>
+        <tr><td>0326 (main)</td><td>29,039</td><td>649</td><td>17,317</td></tr>
+        <tr><td>0869 (room G.38)</td><td>13,800</td><td>458</td><td>7,781</td></tr>
+        <tr><td class="bad">0241, 0227, 0777</td><td class="bad">1–2 each (stale packet)</td><td class="bad">0</td><td class="bad">0</td></tr>
+      </table>
+      <div class="two-col" style="margin-top:8px;">
+        <div class="card">
+          <h3>A — Pool 0326 + 0869, test on 0326</h3>
+          <ul>
+            <li>+56% training data (13,853 → 21,634 rows)</li>
+            <li>SVR MAE 8.30 → 8.14 ppm; Decision Tree improves most</li>
+            <li>Not statistically significant for any model (bootstrap 95% CI spans zero)</li>
+          </ul>
+        </div>
+        <div class="card red">
+          <h3>B — Train on 0326, test on 0869</h3>
+          <ul>
+            <li>Every model worse than "CO2 stays the same" (7.75 ppm)</li>
+            <li>Trained on 0869's own data: SVR MAE 6.99 ppm, R² 0.78</li>
+            <li>Models learn room-specific behaviour → train one per room</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -418,7 +452,7 @@
   <!-- SLIDE 8: Integration -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 8 of 10</div>
+      <div class="slide-num">Slide 9 of 11</div>
       <h2>Numerical Integration — Week 6 Application</h2>
     </div>
     <div class="slide-body">
@@ -444,7 +478,7 @@
   <!-- SLIDE 9: Limitations -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 9 of 10</div>
+      <div class="slide-num">Slide 10 of 11</div>
       <h2>Limitations and What We'd Do Differently</h2>
     </div>
     <div class="slide-body">
@@ -461,8 +495,8 @@
         </div>
         <div>
           <div class="card yellow" style="margin-bottom:12px;">
-            <h3>What this can't tell us</h3>
-            <p>Whether occupancy would help for a sensor that <em>is</em> co-located with an occupancy counter. That's a different setup — this dataset can't answer it.</p>
+            <h3>Models don't transfer between rooms</h3>
+            <p>Trained on sensor 0326, every model did worse than "CO2 stays the same" on sensor 0869. Each room needs its own training data — and whether occupancy helps for a co-located sensor is still an open question.</p>
           </div>
           <div class="card green">
             <h3>What worked well</h3>
@@ -480,7 +514,7 @@
   <!-- SLIDE 10: Summary -->
   <div class="slide">
     <div class="slide-header">
-      <div class="slide-num">Slide 10 of 10</div>
+      <div class="slide-num">Slide 11 of 11</div>
       <h2>Summary</h2>
     </div>
     <div class="slide-body">
@@ -491,6 +525,7 @@
             <li>Predicted indoor CO2 level 15 min ahead — 4 regression models compared</li>
             <li>SVR performed best: MAE = 8.35 ppm, R² = 0.34</li>
             <li>Occupancy tested as a feature — found not to help for any model</li>
+            <li>Every usable interval from all 5 sensors tested — pooling gave no significant gain</li>
             <li>Week 6 numerical integration applied to calculate CO2 exposure</li>
             <li>Real bugs found and fixed throughout</li>
           </ul>
@@ -499,7 +534,7 @@
           <h3>Key takeaways</h3>
           <ul>
             <li>CO2 is driven mainly by ventilation, not individual room headcounts</li>
-            <li>Data quality issues (frozen clocks, undocumented sensor) are common in real industrial datasets</li>
+            <li>Data quality issues (stale re-sent packets, undocumented sensor) are common in real industrial datasets</li>
             <li>A moderate R² reported honestly is valid engineering work</li>
             <li>Convergence checks caught a real integration bug that code review alone would have missed</li>
           </ul>

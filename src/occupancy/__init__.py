@@ -5,8 +5,8 @@ and building occupancy, using all four Week 5 regression methods
 (Linear Regression, Decision Tree, SVR, Neural Network).
 
 Also includes Week 6 numerical integration of accumulated CO2 exposure,
-sensor selection (BoM external-weather validation) and sensor-matching
-analysis.
+sensor selection (BoM external-weather validation), sensor-matching
+analysis and an unbroken-interval audit of every sensor.
 
 See the project README and ``docs/report`` for the full engineering
 context, validation methodology and results.
@@ -35,6 +35,7 @@ from occupancy.evaluation import (
     evaluate_regression_predictions,
 )
 from occupancy.external_weather import load_bom_weather
+from occupancy.sensor_intervals import find_unbroken_intervals, interval_audit, usable_rows
 from occupancy.sensor_matching import build_correlation_matrix, lagged_correlation
 from occupancy.sensors import sensor_label
 from occupancy.weather_comparison import compare_to_bom, daily_indoor_series
@@ -60,6 +61,9 @@ __all__ = [
     "load_env_sensor_log",
     "pivot_variable",
     "sensor_label",
+    "find_unbroken_intervals",
+    "interval_audit",
+    "usable_rows",
     # Sensor validation
     "build_correlation_matrix",
     "lagged_correlation",

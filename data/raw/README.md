@@ -18,8 +18,10 @@ To reproduce this folder, place the following files (as supplied in the
 | `Sensor ID and Locations.xlsx` | 15 KB | Maps device/sensor IDs to physical rooms (partial coverage — see report, Limitations) |
 | `sample_data/` | ~340 MB | Supplementary 2025–2026 batch (PMV, Detailed, Env_data_MSI_Lab) — **not used** in this project; columns for PMV/Detailed are undocumented (see report, Limitations) |
 
-This project's committed code only depends on `5occupancySensor_MayToDec2024_9MRows.csv`
-(and, for development, the small sample above).
+This project's committed code depends on `5EnvSensor_MayToDec2024_180kRows.csv` (all CO2
+experiments, including `scripts/multi_sensor_experiment.py`) and
+`5occupancySensor_MayToDec2024_9MRows.csv` (the occupancy feature and zone matching), plus,
+for development, the small sample above.
 
 ## `bom/` — external weather data (not course-supplied)
 

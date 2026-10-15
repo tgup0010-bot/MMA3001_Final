@@ -42,16 +42,30 @@ Run on the full 9-million-row occupancy dataset:
 
 Expected if co-located: 50–200 ppm. All zone-CO2 Pearson correlations are also negative (r ≈ −0.14 to −0.17), consistent with HVAC dilution rather than co-location. **Sensor 0326 is not in any monitored room.**
 
+## Using Every Sensor's Usable Intervals
+
+Following teaching-team feedback, each sensor's record was cut into **unbroken 15-minute intervals**, and every interval of at least 75 minutes (1 h history + 15 min target) was used, from any sensor ([`scripts/multi_sensor_experiment.py`](scripts/multi_sensor_experiment.py), report Section 4.2).
+
+| Sensor | Distinct readings | Usable intervals | Usable rows |
+|---|---|---|---|
+| 0326 (main) | 29,039 | 649 | 17,317 |
+| 0869 (room G.38) | 13,800 | 458 | 7,781 |
+| 0241, 0227, 0777 | 1–2 each | 0 | 0 |
+
+- **Three sensors contain no real readings.** They re-send one stale packet (same timestamp, same value) about every 11 minutes, so no interval can be formed.
+- **Pooling 0326 + 0869 (+56% training data):** SVR MAE 8.30 → 8.14 ppm, but no model's change is statistically significant (block-bootstrap 95% CIs all span zero).
+- **Models do not transfer between rooms:** trained on 0326 and tested on 0869, every model is worse than a naive "CO2 stays the same" forecast; trained on 0869's own data, SVR reaches MAE 6.99 ppm.
+
 ## Data
 
 Source: MMA3001 Dataset 2 (Monash Smart Infrastructure Occupancy and Environmental Data).
 
-**Only 1 of the 5 sensors used** (`6012002000326`):
-- 2 sensors have frozen clocks (all readings same timestamp — not usable)
-- 1 sensor only has ~4 months of data
-- Sensor 0326 chosen and validated against Bureau of Meteorology records: r = +0.84 (temperature), r = +0.65 (humidity) over 222 days
+**Main analysis uses sensor `6012002000326`;** sensor `6012002000869` is added in the multi-sensor experiments above:
+- 3 sensors (`0227`, `0777`, `0241`) only ever re-send one stale packet — no genuine readings
+- Sensor 0869 has ~3.5 months of genuine readings (Feb–Jun 2024)
+- Sensor 0326 has genuine readings from Sep 2025 to Apr 2026, validated against Bureau of Meteorology records: r = +0.84 (temperature), r = +0.65 (humidity) over 222 days
 
-**17,010 rows used** from 84,576 candidates — 80% dropped due to a 636-day sensor outage and missing lag/rolling features.
+**17,010 rows used** from 84,576 candidates — 80% dropped due to a 636-day gap in genuine readings and missing lag/rolling features.
 
 Raw data files are not committed (see [`data/raw/README.md`](data/raw/README.md)).
 
@@ -60,7 +74,7 @@ Raw data files are not committed (see [`data/raw/README.md`](data/raw/README.md)
 ```
 ├── src/occupancy/       Python package: CO2 regression + integration models
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
-├── tests/               pytest unit tests (34, all passing)
+├── tests/               pytest unit tests (38, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
 ├── docs/MMA3001_Presentation.pptx   12-slide presentation
 ├── reports/             JSON experiment results
@@ -86,7 +100,8 @@ Trains SVR fresh, replays 12 real test-set predictions, then lets you type in yo
 ```bash
 python scripts/co2_prediction_experiment.py   # CO2 regression (all 4 models)
 python scripts/co2_integration_analysis.py    # Numerical integration analysis
-pytest                                         # Run all 34 tests
+python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-sensor experiments
+pytest                                         # Run all 38 tests
 ```
 
 ## AI Use
