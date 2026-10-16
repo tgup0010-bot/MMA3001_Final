@@ -20,8 +20,7 @@ row-level test predictions this time, and produces:
      (predicted - actual vs. predicted), the standard Week 5.5
      diagnostic for spotting systematic bias.
   4. ``chart14_train_test_split.png`` -- the train/test split over the
-     full sensor history (recreates the intent of the existing,
-     non-reproducible chart8_split_timeline.png from actual code).
+     full sensor history.
 
 Also writes ``reports/co2_test_predictions.csv`` (time, actual, and each
 model's prediction for every test-set row) so these -- or any future

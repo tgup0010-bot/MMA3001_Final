@@ -41,7 +41,7 @@ Sensor `6012002000326` has no documented room, so before trusting occupancy as a
 
 ## Using Every Sensor's Usable Intervals
 
-Following teaching-team feedback, each sensor's record was cut into **unbroken 15-minute intervals**, and every interval of at least 75 minutes (1 h history + 15 min target) was used, from any sensor ([`scripts/multi_sensor_experiment.py`](scripts/multi_sensor_experiment.py), report Section 4.2).
+Following teaching-team feedback, each sensor's record was cut into **unbroken 15-minute intervals**, and every interval of at least 75 minutes (1 h history + 15 min target) was used, from any sensor ([`scripts/multi_sensor_experiment.py`](scripts/multi_sensor_experiment.py), report Section 4.1).
 
 | Sensor | Distinct readings | Usable intervals | Usable rows |
 |---|---|---|---|

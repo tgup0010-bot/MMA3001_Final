@@ -30,7 +30,7 @@ This is a **supervised regression problem**: a function is learned that maps a v
 
 The main analysis uses environmental sensor `6012002000326`, which has the longest record of genuine readings. It has no documented room location (discussed in Section 6), which limits how well building occupancy can be linked to CO₂ at this location. The results establish whether short-term CO₂ prediction is achievable from sensor history alone and whether occupancy data provides any additional predictive value.
 
-Section 4.2 then extends the analysis to every sensor: each sensor's record is cut into unbroken intervals, and every interval long enough to form a training example is used. This adds a second sensor (`6012002000869`) and tests whether pooling data across sensors helps, and whether a model trained in one room transfers to another.
+Section 4.1 then extends the analysis to every sensor: each sensor's record is cut into unbroken intervals, and every interval long enough to form a training example is used. This adds a second sensor (`6012002000869`) and tests whether pooling data across sensors helps, and whether a model trained in one room transfers to another.
 
 ---
 
@@ -73,7 +73,7 @@ The figure below shows the impact:
 
 Of 84,576 candidate 15-minute timestamps in the raw log, 17,010 (20.1%) have all four required values present and are retained for modelling. The remaining 67,566 rows (79.9%) are dropped.
 
-In effect, this policy keeps only the *unbroken intervals* of the record: runs of consecutive 15-minute bins with no gap. A row needs four bins of history (the 1-hour rolling mean) plus the next bin as its target, so any unbroken interval of at least 75 minutes contributes training data, and an interval of $n$ bins yields $n - 4$ rows. For sensor `6012002000326` there are 649 such intervals covering 4,978 hours. Section 4.2 applies the same rule to every sensor.
+In effect, this policy keeps only the *unbroken intervals* of the record: runs of consecutive 15-minute bins with no gap. A row needs four bins of history (the 1-hour rolling mean) plus the next bin as its target, so any unbroken interval of at least 75 minutes contributes training data, and an interval of $n$ bins yields $n - 4$ rows. For sensor `6012002000326` there are 649 such intervals covering 4,978 hours. Section 4.1 applies the same rule to every sensor.
 
 ### 2.4 Output
 
@@ -152,23 +152,9 @@ SVR's per-batch prediction time of approximately 2.85 seconds is substantially l
 
 Adding building occupancy as a feature provides no measurable improvement for any model. For the Decision Tree it is actively detrimental: the model wasted splits on an irrelevant feature, and its R² fell from 0.331 to 0.191. The reason is not that occupancy is irrelevant to CO₂ in principle — the mass-balance equation establishes that it is not — but that there is no evidence linking this sensor to any of the five monitored occupancy zones (Section 6). The building-level occupancy count carries no information about what is happening in this particular room.
 
----
+Row-by-row diagnostic plots (predictions over time, predicted vs. actual, and residuals) are given in Appendix A.
 
-### 4.1 Diagnostic plots
-
-The comparison table above is aggregate; the plots below show what it looks like row by row.
-
-![Ground truth CO2 vs. all four models' predictions — full test set (daily mean) and a representative 5-day detail window at native 15-minute resolution](chart11_predictions_timeseries.png){width=4.3in}
-
-All four track the everyday CO2 trend closely; they diverge at the sharp spikes in the detail panel (14-19 March), where every model lags or flattens the peak — the Decision Tree even overshoots into a spike the sensor never reached (15 March), a symptom of its piecewise-constant leaves extrapolating from a small high-CO2 training leaf.
-
-![Predicted vs. actual CO2 for each model on the held-out test set, with a y=x reference line](chart12_predicted_vs_actual.png){width=4.3in}
-
-![Residual (predicted minus actual) vs. predicted CO2 for each model](chart13_residuals.png){width=4.3in}
-
-Predicted-vs-actual makes the R² numbers concrete: all four point clouds hug y=x below 550 ppm, then fall well short of it as actual CO2 rises past 600 ppm. The residual plots show the same effect directionally: residuals sit near zero typically but turn increasingly negative as predicted CO2 rises, rather than scattering symmetrically — a model under-responding to its most extreme inputs, consistent with the training data being dominated by the 400-550 ppm range (Section 2.3).
-
-### 4.2 Using every usable interval from all sensors
+### 4.1 Using every usable interval from all sensors
 
 The analysis above uses one sensor. Rather than accepting or rejecting each sensor as a whole, the same unbroken-interval rule from Section 2.3 was applied to all five environmental sensors: every interval of at least 75 minutes, from any sensor, is usable. The audit also compared each reading's own timestamp with the log's `createdate` field (the time the server received it). This showed that a sensor which stops measuring keeps re-transmitting its last packet roughly every 11 minutes, so the log fills with thousands of identical rows.
 
@@ -180,7 +166,7 @@ The analysis above uses one sensor. Rather than accepting or rejecting each sens
 | 0227 | 21,363 | 1 | 21,363 | 0 | 0 | 0 |
 | 0777 | 10,926 | 1 | 10,926 | 0 | 0 | 0 |
 
-![Usable unbroken intervals (green) and re-transmitted stale packets (grey) for each sensor](chart15_sensor_intervals.png){width=6in}
+![Usable unbroken intervals (green) and re-transmitted stale packets (grey) for each sensor](chart15_sensor_intervals.png){width=5.2in}
 
 Three sensors never produced more than two distinct readings, so even a 75-minute interval cannot be formed from them. Sensor `6012002000869` (the only sensor with a documented room, G.38) has genuine readings from 29 February to 13 June 2024, with almost no gaps, giving 7,781 additional rows. Two experiments use this extra data. Both exclude occupancy (it adds nothing for sensor `6012002000326`, Section 4) so that row sets are identical across runs. A naive *persistence* forecast (next CO₂ = current CO₂) is included as a reference floor that any useful model must beat.
 
@@ -206,7 +192,7 @@ Pooling increased the training set by 56% (13,853 to 21,634 rows). The best resu
 | **SVR** | **6.994** | 8.070 |
 | Neural Network | 7.456 | 8.035 |
 
-![MAE for Experiment A (left) and Experiment B (right)](chart16_multi_sensor_results.png){width=6in}
+![MAE for Experiment A (left) and Experiment B (right)](chart16_multi_sensor_results.png){width=5.2in}
 
 Trained on its own room, every model beats persistence, and SVR is again the best method (MAE 6.99 ppm, R² 0.78). Trained on the other room, every model is *worse than persistence*. The models learn room-specific behaviour — the typical CO₂ level each room settles to and how quickly it returns there — so a model from one room pulls its forecasts toward the wrong baseline in another. The practical conclusion is that a forecaster of this kind must be trained per room (or per sensor); it cannot simply be copied between rooms.
 
@@ -269,15 +255,15 @@ The two methods agree to within 0.1% at every resolution, confirming the impleme
 
 **The sensor has no documented room location.** Sensor `6012002000326` does not appear in the Sensor ID and Locations spreadsheet provided with the dataset, so there is no way to determine from metadata which room it monitors or which occupancy zone covers that room. Instead, a data-driven sensor-matching analysis was run (`occupancy.sensor_matching`, `scripts/sensor_matching_analysis.py`). For every zone–sensor pair, the zone's binary occupancy and the sensor's reading were resampled to 15-minute bins, and Pearson's $r$ was computed between occupancy and the *change* in the reading from one bin to the next (its first difference). Using the change rather than the level matters: every room's CO₂ and temperature follow the same working-day cycle, so correlating raw levels would make every pair look related. Lags of up to ±4 bins (±1 hour) were searched and the strongest absolute correlation kept. The test was repeated for CO₂, temperature and humidity (results in `reports/sensor_matching_results.json`).
 
-![Best-lag correlation between each zone's occupancy and the 15-minute change in each sensor's reading](chart10_zone_matching.png){width=6in}
+![Best-lag correlation between each zone's occupancy and the 15-minute change in each sensor's reading](chart10_zone_matching.png){width=5.2in}
 
 For CO₂, sensor `6012002000326` shows essentially no relationship with any zone: $|r| \le 0.03$ for all four zones with overlapping data (the fifth zone has no overlap with this sensor's genuine readings). No sensor exceeds $|r| = 0.06$ for CO₂. Temperature shows weak positive correlations for this sensor ($r$ up to 0.27), but at a lag of −3 to −4 bins: the temperature rise *precedes* occupancy by 45–60 minutes, which points to a building-wide morning HVAC warm-up rather than to people in a shared room. A correlation search of this kind cannot prove that the sensor is outside every zone, but it finds no evidence linking it to any of them. This is a property of the dataset, not a failure of the modelling approach.
 
-**Three of the five sensors contain no genuine readings.** Sensors `6012002000227`, `6012002000777` and `6012002000241` were initially described as having frozen clocks, because every row carries the same internal timestamp. Comparing with the server receive time (`createdate`) shows the fault is more fundamental: the rows arrive regularly, but every one is the same stale packet re-sent, with an identical CO₂ value (for example, 666 ppm in all 21,363 rows of `6012002000227`). No interval of any length can be formed, so these sensors cannot contribute data under any policy. The same fault affects the two usable sensors outside their genuine periods (Section 4.2). Sensor `6012002000869` has only three and a half months of genuine data, which is why it was not used for the main analysis; it is used for the pooled and cross-sensor experiments in Section 4.2. None of these issues is documented in the dataset description; they were identified by inspecting the raw timestamps and values.
+**Three of the five sensors contain no genuine readings.** Sensors `6012002000227`, `6012002000777` and `6012002000241` were initially described as having frozen clocks, because every row carries the same internal timestamp. Comparing with the server receive time (`createdate`) shows the fault is more fundamental: the rows arrive regularly, but every one is the same stale packet re-sent, with an identical CO₂ value (for example, 666 ppm in all 21,363 rows of `6012002000227`). No interval of any length can be formed, so these sensors cannot contribute data under any policy. The same fault affects the two usable sensors outside their genuine periods (Section 4.1). Sensor `6012002000869` has only three and a half months of genuine data, which is why it was not used for the main analysis; it is used for the pooled and cross-sensor experiments in Section 4.1. None of these issues is documented in the dataset description; they were identified by inspecting the raw timestamps and values.
 
-**Most candidate rows are discarded.** A 636-day gap in genuine readings reduces the usable dataset from 84,576 candidate rows to 17,010 (20.1%). This is a direct consequence of the sensor fault and the correct handling of missing data; imputing values across a gap of this length would produce a fabricated dataset with no physical basis. Adding every usable interval from a second sensor raises the training set by 56% but does not measurably improve accuracy (Section 4.2).
+**Most candidate rows are discarded.** A 636-day gap in genuine readings reduces the usable dataset from 84,576 candidate rows to 17,010 (20.1%). This is a direct consequence of the sensor fault and the correct handling of missing data; imputing values across a gap of this length would produce a fabricated dataset with no physical basis. Adding every usable interval from a second sensor raises the training set by 56% but does not measurably improve accuracy (Section 4.1).
 
-**Models do not transfer between rooms.** A model trained on one sensor performs worse than a naive persistence forecast on another (Section 4.2). Each room needs its own training data.
+**Models do not transfer between rooms.** A model trained on one sensor performs worse than a naive persistence forecast on another (Section 4.1). Each room needs its own training data.
 
 **Predictive accuracy is moderate.** An R² of approximately 0.34–0.36 means the models account for roughly one third of the variability in next-15-minute CO₂ levels. The remainder is driven by unobserved factors — HVAC switching, windows, doors, and the occupants of the room itself (since the occupancy counter does not cover it). The model is appropriately used as a trend indicator to support early ventilation decisions, not as a precise point forecast.
 
@@ -293,9 +279,11 @@ Claude (Claude Code) was used throughout this project for data exploration, Pyth
 
 **What I directed and decided:** I chose CO₂ prediction over occupancy classification because it was a better fit for the regression focus of MMA3001 Week 5 and for the structure of the available data. I selected which sensor to use and required external validation before accepting it as reliable. I chose to include occupancy as a feature and test it empirically rather than exclude or include it by assumption. When the two numerical integration methods produced results differing by a factor of nine, I required an explanation before accepting either answer — this investigation identified the gap-bridging error in the original implementation.
 
-**Follow-up after teaching-team feedback:** After discussing the project with the teaching team, I was advised to use the valid time intervals from the other sensors instead of discarding them entirely. I brought this feedback to Claude and asked for it to be applied. Claude proposed and implemented the interval audit, the pooled and cross-sensor experiments and the bootstrap significance check (Section 4.2), and found, by comparing the `createdate` field with each reading's own timestamp, that the "frozen" sensors were re-sending a single stale packet. I approved the experiments and the decision to report the non-significant pooling result and the negative cross-sensor result as they are.
+**Follow-up after teaching-team feedback:** After discussing the project with the teaching team, I was advised to use the valid time intervals from the other sensors instead of discarding them entirely. I brought this feedback to Claude and asked for it to be applied. Claude proposed and implemented the interval audit, the pooled and cross-sensor experiments and the bootstrap significance check (Section 4.1), and found, by comparing the `createdate` field with each reading's own timestamp, that the "frozen" sensors were re-sending a single stale packet. I approved the experiments and the decision to report the non-significant pooling result and the negative cross-sensor result as they are.
 
-**What I verified:** All numerical results in this report were checked against the actual output files (`reports/co2_prediction_results.json`, `reports/multi_sensor_results.json`) before being recorded here. The integration estimates and convergence results come from scripts that can be rerun to reproduce the same outputs.
+**Repository maintenance:** Claude also restored a module and tests that an earlier cleanup had deleted, regenerated the API documentation and test report, and corrected this report's description of the zone-matching analysis so that it matches the code in `occupancy.sensor_matching`.
+
+**What I verified:** All numerical results in this report were checked against the actual output files (`reports/co2_prediction_results.json`, `reports/multi_sensor_results.json`, `reports/sensor_matching_results.json`) before being recorded here. The integration estimates and convergence results come from scripts that can be rerun to reproduce the same outputs.
 
 **Honest acknowledgement:** In extended AI-assisted work, the precise boundary between ideas that originated with me and ideas that emerged from interaction with Claude cannot always be drawn clearly. The engineering framing, scope decisions, sensor selection rationale, and interpretation of results are mine. The implementation and much of the written prose were produced collaboratively.
 
@@ -310,3 +298,19 @@ Claude (Claude Code) was used throughout this project for data exploration, Pyth
 - ASHRAE Standard 62.1: Ventilation and Acceptable Indoor Air Quality. American Society of Heating, Refrigerating and Air-Conditioning Engineers, 2022.
 - Bureau of Meteorology. Daily Weather Observations, Moorabbin Airport (station 086077). http://www.bom.gov.au/climate/dwo/
 - scikit-learn documentation: LinearRegression, DecisionTreeRegressor, SVR, MLPRegressor, StandardScaler, Pipeline. https://scikit-learn.org/
+
+---
+
+## Appendix A: Diagnostic Plots
+
+The comparison table in Section 4 is aggregate; the plots below show what it looks like row by row (Linear Regression, Decision Tree, SVR and Neural Network, with occupancy, on the 0326 test set).
+
+![Ground truth CO2 vs. all four models' predictions — full test set (daily mean) and a representative 5-day detail window at native 15-minute resolution](chart11_predictions_timeseries.png){width=4.3in}
+
+All four track the everyday CO2 trend closely; they diverge at the sharp spikes in the detail panel (14-19 March), where every model lags or flattens the peak — the Decision Tree even overshoots into a spike the sensor never reached (15 March), a symptom of its piecewise-constant leaves extrapolating from a small high-CO2 training leaf.
+
+![Predicted vs. actual CO2 for each model on the held-out test set, with a y=x reference line](chart12_predicted_vs_actual.png){width=4.3in}
+
+![Residual (predicted minus actual) vs. predicted CO2 for each model](chart13_residuals.png){width=4.3in}
+
+Predicted-vs-actual makes the R² numbers concrete: all four point clouds hug y=x below 550 ppm, then fall well short of it as actual CO2 rises past 600 ppm. The residual plots show the same effect directionally: residuals sit near zero typically but turn increasingly negative as predicted CO2 rises, rather than scattering symmetrically — a model under-responding to its most extreme inputs, consistent with the training data being dominated by the 400-550 ppm range (Section 2.3).
