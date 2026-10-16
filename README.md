@@ -37,7 +37,7 @@ Sensor `6012002000326` has no documented room, so before trusting occupancy as a
 | Temperature | r = +0.04 to +0.27, but temperature rises 45–60 min *before* occupancy → building-wide HVAC warm-up |
 | Humidity | r = −0.15 to +0.02 |
 
-**No evidence links sensor 0326 to any monitored zone,** which explains why occupancy adds nothing to the CO2 model. Results: [`reports/sensor_matching_results.json`](reports/sensor_matching_results.json); chart: `python scripts/plot_sensor_matching.py`.
+**No evidence links sensor 0326 to any monitored zone,** which explains why occupancy adds nothing to the CO2 model. Its daily pattern agrees ([`scripts/weekday_weekend_comparison.py`](scripts/weekday_weekend_comparison.py)): sensor 0869 (room G.38) peaks at 13:00 on weekdays and is 55 ppm lower at weekends during working hours, like an occupied room, while sensor 0326 peaks at 07:00 and shows no weekday/weekend difference (436 vs 436 ppm) — it follows the ventilation schedule, not people. Results: [`reports/sensor_matching_results.json`](reports/sensor_matching_results.json); chart: `python scripts/plot_sensor_matching.py`.
 
 ## Using Every Sensor's Usable Intervals
 
@@ -99,6 +99,7 @@ python scripts/co2_prediction_experiment.py   # CO2 regression (all 4 models)
 python scripts/co2_integration_analysis.py    # Numerical integration analysis
 python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-sensor experiments
 python scripts/sensor_matching_analysis.py    # Sensor-matching (lagged correlation) analysis
+python scripts/weekday_weekend_comparison.py  # Weekday vs weekend CO2 for both usable sensors
 pytest                                         # Run all 54 tests
 ```
 
