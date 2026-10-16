@@ -164,7 +164,7 @@ def chart_predictions_timeseries(preds: pd.DataFrame) -> None:
 
 
 def chart_predicted_vs_actual(preds: pd.DataFrame) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10), sharex=True, sharey=True)
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4.6), sharex=True, sharey=True)
     lo = min(preds["actual"].min(), *(preds[m].min() for m in MODEL_STYLE))
     hi = max(preds["actual"].max(), *(preds[m].max() for m in MODEL_STYLE))
     pad = (hi - lo) * 0.03
@@ -182,19 +182,18 @@ def chart_predicted_vs_actual(preds: pd.DataFrame) -> None:
         ax.grid(axis="both", linestyle="--", alpha=0.4, color="#c3c2b7")
         ax.set_aspect("equal", adjustable="box")
 
-    for ax in axes[-1, :]:
+    for ax in axes:
         ax.set_xlabel("Actual CO2 (ppm)")
-    for ax in axes[:, 0]:
-        ax.set_ylabel("Predicted CO2 (ppm)")
+    axes[0].set_ylabel("Predicted CO2 (ppm)")
 
     fig.suptitle("Predicted vs. actual CO2 on the held-out test set (3,402 rows)", fontsize=15, fontweight="bold")
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     fig.savefig(OUT_DIR / "chart12_predicted_vs_actual.png", dpi=150)
     plt.close(fig)
 
 
 def chart_residuals(preds: pd.DataFrame) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(10, 9), sharex=True, sharey=True)
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4.2), sharex=True, sharey=True)
 
     for ax, (name, style) in zip(axes.flat, MODEL_STYLE.items()):
         residual = preds[name] - preds["actual"]
@@ -203,16 +202,15 @@ def chart_residuals(preds: pd.DataFrame) -> None:
             preds[name], residual, s=14, alpha=0.35, color=style["color"],
             marker=style["marker"], edgecolors="none",
         )
-        ax.set_title(f"{name}\nmean residual={residual.mean():+.2f} ppm  std={residual.std():.2f}")
+        ax.set_title(f"{name}\nmean={residual.mean():+.2f} ppm, std={residual.std():.2f}")
         ax.grid(axis="both", linestyle="--", alpha=0.4, color="#c3c2b7")
 
-    for ax in axes[-1, :]:
+    for ax in axes:
         ax.set_xlabel("Predicted CO2 (ppm)")
-    for ax in axes[:, 0]:
-        ax.set_ylabel("Residual: predicted − actual (ppm)")
+    axes[0].set_ylabel("Residual (ppm)")
 
-    fig.suptitle("Residual diagnostics — predicted CO2 vs. prediction error", fontsize=15, fontweight="bold")
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.suptitle("Residual diagnostics — predicted CO2 vs. prediction error (predicted − actual)", fontsize=15, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
     fig.savefig(OUT_DIR / "chart13_residuals.png", dpi=150)
     plt.close(fig)
 
