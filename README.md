@@ -119,7 +119,26 @@ pdoc -o docs/api occupancy occupancy.co2_integration occupancy.co2_models occupa
 
 ## AI Use
 
-Claude (Claude Code) was used for data exploration, coding, and drafting throughout. Full disclosure and reflection are in the project report Section 8.
+Claude (Claude Code) was used throughout this project for data exploration, Python implementation, analysis, and drafting the report.
+
+**What Claude assisted with**
+- Setting up the package structure and writing the scikit-learn pipeline code
+- Running the four-model comparison and the numerical integration analysis
+- Implementing the sensor-matching analysis (a lagged correlation search, following Keenan Granland's EdStem suggestion to look for a sensor–zone link in the data itself)
+- After teaching-team feedback to use the valid time intervals from the other sensors: the interval audit, the pooled and cross-sensor experiments, and the bootstrap significance check — including finding that the "frozen" sensors were re-sending a single stale packet
+- Repository maintenance: restoring a missing module and tests, regenerating the API docs and test report, and correcting the report's zone-matching description to match the code
+- Drafting the report
+
+**What I directed and decided**
+- Chose CO2 prediction over occupancy classification, as a better fit for the Week 5 regression focus and the available data
+- Selected the sensor and required external validation (Bureau of Meteorology) before accepting it as reliable
+- Included occupancy as a feature to be tested empirically, rather than assumed useful or useless
+- Required an explanation when the two integration methods disagreed by a factor of nine, which exposed the gap-bridging error
+- Brought the teaching team's feedback to Claude, approved the follow-up experiments, and chose to report the non-significant and negative results as they are
+
+**What I verified:** every number in the report was checked against the output files in [`reports/`](reports/), and all results come from scripts that can be rerun to reproduce them.
+
+**Honest acknowledgement:** in extended AI-assisted work, the boundary between my ideas and ideas that emerged from working with Claude cannot always be drawn precisely. The engineering framing, scope decisions, sensor selection rationale and interpretation of results are mine; the implementation and much of the written prose were produced collaboratively. The full reflection is in Section 7 of the [project report](docs/report/report.md).
 
 ## License
 
