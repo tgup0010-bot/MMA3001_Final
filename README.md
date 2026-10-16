@@ -117,7 +117,7 @@ pdoc -o docs/api occupancy occupancy.co2_integration occupancy.co2_models occupa
     occupancy.weather_comparison
 ```
 
-## AI Use
+## AI Declaration
 
 Claude (Claude Code) was used throughout this project for data exploration, Python implementation, analysis, and drafting the report.
 
