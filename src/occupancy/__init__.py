@@ -21,6 +21,7 @@ Modules:
 - `occupancy.evaluation` -- chronological train/test splitting and prediction-quality metrics.
 - `occupancy.external_weather` -- loading of real Bureau of Meteorology daily weather observations.
 - `occupancy.preprocessing` -- convert the occupancy event log into a regular per-room time grid.
+- `occupancy.rooms` -- friendly labels for the anonymous occupancy zone identifiers.
 - `occupancy.sensor_intervals` -- unbroken-interval audit of the environmental sensors.
 - `occupancy.sensor_matching` -- data-driven attempt to link environmental sensors to occupancy zones.
 - `occupancy.sensors` -- friendly labels for the environmental sensor identifiers used in the data.
@@ -52,6 +53,7 @@ from occupancy.evaluation import (
 from occupancy.external_weather import load_bom_weather
 from occupancy.sensor_intervals import find_unbroken_intervals, interval_audit, usable_rows
 from occupancy.sensor_matching import build_correlation_matrix, lagged_correlation
+from occupancy.rooms import room_label
 from occupancy.sensors import sensor_label
 from occupancy.weather_comparison import compare_to_bom, daily_indoor_series
 
@@ -76,6 +78,7 @@ __all__ = [
     "load_env_sensor_log",
     "pivot_variable",
     "sensor_label",
+    "room_label",
     "find_unbroken_intervals",
     "interval_audit",
     "usable_rows",

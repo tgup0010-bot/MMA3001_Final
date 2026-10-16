@@ -2,7 +2,7 @@
 
 **MMA3001 — Numerical Methods and Machine Learning, Project Report**
 **Dataset:** MMA3001 Dataset 2 — Monash Smart Infrastructure Occupancy and Environmental Data
-**Repository:** https://github.com/tgup0010-bot/MMA_Final
+**Repository:** https://github.com/tgup0010-bot/MMA3001_FINAL
 
 ---
 
@@ -150,7 +150,7 @@ SVR's per-batch prediction time of approximately 2.85 seconds is substantially l
 | SVR | 0.342 | 0.344 | −0.002 |
 | Neural Network | 0.336 | 0.335 | +0.001 |
 
-Adding building occupancy as a feature provides no measurable improvement for any model. For the Decision Tree it is actively detrimental: the model wasted splits on an irrelevant feature, and its R² fell from 0.331 to 0.191. The reason is not that occupancy is irrelevant to CO₂ in principle — the mass-balance equation establishes that it is not — but that this sensor is not co-located with any of the five monitored occupancy zones (established in Section 6). The building-level occupancy count carries no information about what is happening in this particular room.
+Adding building occupancy as a feature provides no measurable improvement for any model. For the Decision Tree it is actively detrimental: the model wasted splits on an irrelevant feature, and its R² fell from 0.331 to 0.191. The reason is not that occupancy is irrelevant to CO₂ in principle — the mass-balance equation establishes that it is not — but that there is no evidence linking this sensor to any of the five monitored occupancy zones (Section 6). The building-level occupancy count carries no information about what is happening in this particular room.
 
 ---
 
@@ -267,7 +267,11 @@ The two methods agree to within 0.1% at every resolution, confirming the impleme
 
 ## 6. Limitations and Known Failure Modes
 
-**The sensor has no documented room location.** Sensor `6012002000326` does not appear in the Sensor ID and Locations spreadsheet provided with the dataset. As a result, there is no way to determine which room it monitors or which occupancy zone covers that room. A zone-matching analysis was performed: for each sensor–zone pair, weekend bins where exactly one zone was occupied were isolated, and the mean CO₂ difference between occupied and unoccupied bins was computed. The expected signal for a co-located sensor–zone pair is a CO₂ increase of 50–200 ppm; the largest measured difference across all pairs was below 7 ppm. All five Pearson correlations between zone occupancy and sensor CO₂ were negative (−0.14 to −0.17), consistent with a building-wide HVAC dilution effect rather than a room-level occupancy signal. This is a property of the dataset, not a failure of the modelling approach.
+**The sensor has no documented room location.** Sensor `6012002000326` does not appear in the Sensor ID and Locations spreadsheet provided with the dataset, so there is no way to determine from metadata which room it monitors or which occupancy zone covers that room. Instead, a data-driven sensor-matching analysis was run (`occupancy.sensor_matching`, `scripts/sensor_matching_analysis.py`). For every zone–sensor pair, the zone's binary occupancy and the sensor's reading were resampled to 15-minute bins, and Pearson's $r$ was computed between occupancy and the *change* in the reading from one bin to the next (its first difference). Using the change rather than the level matters: every room's CO₂ and temperature follow the same working-day cycle, so correlating raw levels would make every pair look related. Lags of up to ±4 bins (±1 hour) were searched and the strongest absolute correlation kept. The test was repeated for CO₂, temperature and humidity (results in `reports/sensor_matching_results.json`).
+
+![Best-lag correlation between each zone's occupancy and the 15-minute change in each sensor's reading](chart10_zone_matching.png){width=6in}
+
+For CO₂, sensor `6012002000326` shows essentially no relationship with any zone: $|r| \le 0.03$ for all four zones with overlapping data (the fifth zone has no overlap with this sensor's genuine readings). No sensor exceeds $|r| = 0.06$ for CO₂. Temperature shows weak positive correlations for this sensor ($r$ up to 0.27), but at a lag of −3 to −4 bins: the temperature rise *precedes* occupancy by 45–60 minutes, which points to a building-wide morning HVAC warm-up rather than to people in a shared room. A correlation search of this kind cannot prove that the sensor is outside every zone, but it finds no evidence linking it to any of them. This is a property of the dataset, not a failure of the modelling approach.
 
 **Three of the five sensors contain no genuine readings.** Sensors `6012002000227`, `6012002000777` and `6012002000241` were initially described as having frozen clocks, because every row carries the same internal timestamp. Comparing with the server receive time (`createdate`) shows the fault is more fundamental: the rows arrive regularly, but every one is the same stale packet re-sent, with an identical CO₂ value (for example, 666 ppm in all 21,363 rows of `6012002000227`). No interval of any length can be formed, so these sensors cannot contribute data under any policy. The same fault affects the two usable sensors outside their genuine periods (Section 4.2). Sensor `6012002000869` has only three and a half months of genuine data, which is why it was not used for the main analysis; it is used for the pooled and cross-sensor experiments in Section 4.2. None of these issues is documented in the dataset description; they were identified by inspecting the raw timestamps and values.
 
@@ -285,7 +289,7 @@ The two methods agree to within 0.1% at every resolution, confirming the impleme
 
 Claude (Claude Code) was used throughout this project for data exploration, Python implementation, analysis, and drafting this report. The following is a straightforward account of how it was used and what I contributed.
 
-**What Claude assisted with:** Setting up the package structure, writing the scikit-learn pipeline code, running the four-model comparison, performing the integration analysis, implementing the zone-matching validation, and producing drafts of this report. Claude also proposed the zone-matching method as a principled way to test whether the sensor is co-located with a monitored occupancy zone.
+**What Claude assisted with:** Setting up the package structure, writing the scikit-learn pipeline code, running the four-model comparison, performing the integration analysis, implementing the sensor-matching analysis (a lagged correlation search, following Keenan Granland's EdStem suggestion to look for a sensor–zone link in the data itself), and producing drafts of this report.
 
 **What I directed and decided:** I chose CO₂ prediction over occupancy classification because it was a better fit for the regression focus of MMA3001 Week 5 and for the structure of the available data. I selected which sensor to use and required external validation before accepting it as reliable. I chose to include occupancy as a feature and test it empirically rather than exclude or include it by assumption. When the two numerical integration methods produced results differing by a factor of nine, I required an explanation before accepting either answer — this investigation identified the gap-bridging error in the original implementation.
 

@@ -1,6 +1,6 @@
 # MMA3001 Project — Indoor CO2 Prediction
 
-[![CI](https://github.com/tgup0010-bot/MMA_Final/actions/workflows/ci.yml/badge.svg)](https://github.com/tgup0010-bot/MMA_Final/actions/workflows/ci.yml)
+[![CI](https://github.com/tgup0010-bot/MMA3001_FINAL/actions/workflows/ci.yml/badge.svg)](https://github.com/tgup0010-bot/MMA3001_FINAL/actions/workflows/ci.yml)
 
 Individual project for MMA3001 (Numerical Methods and Machine Learning), Monash University, 2026 S2.
 
@@ -10,7 +10,7 @@ Author: Tanmay Gupta
 
 Indoor CO2 rises when rooms are occupied and ventilation is insufficient. Above 800–1000 ppm, occupants experience reduced alertness. Most building systems react *after* CO2 is already too high.
 
-This project predicts CO2 concentration **15 minutes ahead** from recent sensor history, so a building management system can pre-emptively increase ventilation. It also runs a full zone-matching analysis to test whether occupancy data is useful — and finds that it is not, for this sensor.
+This project predicts CO2 concentration **15 minutes ahead** from recent sensor history, so a building management system can pre-emptively increase ventilation. It also runs a sensor-matching analysis to test whether occupancy data is useful — and finds no evidence that it is, for this sensor.
 
 **Status: complete.** All four Week 5 regression methods are implemented and compared. A Week 6 numerical integration analysis is included. The full written report is at [`docs/report/report.md`](docs/report/report.md) and [`docs/report/MMA3001_Project_Report.docx`](docs/report/MMA3001_Project_Report.docx).
 
@@ -25,22 +25,19 @@ This project predicts CO2 concentration **15 minutes ahead** from recent sensor 
 | **SVR** | **8.350** | 25.894 | 0.3422 |
 | Neural Network Regression | 9.350 | 26.015 | 0.3360 |
 
-**Occupancy does not help.** Adding building occupancy as a feature makes no meaningful difference for any model (and actively hurts Decision Tree). This is explained by the zone-matching analysis below.
+**Occupancy does not help.** Adding building occupancy as a feature makes no meaningful difference for any model (and actively hurts Decision Tree). This is explained by the sensor-matching analysis below.
 
-## Zone-Matching Analysis (Keena's Weekend Spike Method)
+## Sensor-Matching Analysis
 
-Before using occupancy as a feature, a dedicated analysis tested whether sensor `6012002000326` is physically located in any of the 5 monitored occupancy zones. Method: on weekends, when only one zone is occupied, CO2 should spike by 50–200 ppm at a co-located sensor.
+Sensor `6012002000326` has no documented room, so before trusting occupancy as a feature a data-driven check looked for a link between each of the 5 occupancy zones and each sensor ([`occupancy.sensor_matching`](src/occupancy/sensor_matching.py), [`scripts/sensor_matching_analysis.py`](scripts/sensor_matching_analysis.py)). Method: resample to 15-minute bins, correlate each zone's occupancy with the **change** in the sensor's reading (not its level, which follows the same daily cycle in every room), search lags up to ±1 hour, and keep the strongest |r|.
 
-Run on the full 9-million-row occupancy dataset:
+| Variable | Sensor 0326 vs. the 4 zones with overlapping data |
+|---|---|
+| CO2 | r = −0.03 to +0.01 (no sensor exceeds \|r\| = 0.06) |
+| Temperature | r = +0.04 to +0.27, but temperature rises 45–60 min *before* occupancy → building-wide HVAC warm-up |
+| Humidity | r = −0.15 to +0.02 |
 
-| Zone | CO2 delta (solo-occupied weekends) | Verdict |
-|---|---|---|
-| Zone A | +6.2 ppm | Physically negligible — not co-located |
-| Zone B | −1.4 ppm | Not co-located |
-| Zone C | +1.8 ppm | Not co-located |
-| Zone D | −5.3 ppm | Not co-located |
-
-Expected if co-located: 50–200 ppm. All zone-CO2 Pearson correlations are also negative (r ≈ −0.14 to −0.17), consistent with HVAC dilution rather than co-location. **Sensor 0326 is not in any monitored room.**
+**No evidence links sensor 0326 to any monitored zone,** which explains why occupancy adds nothing to the CO2 model. Results: [`reports/sensor_matching_results.json`](reports/sensor_matching_results.json); chart: `python scripts/plot_sensor_matching.py`.
 
 ## Using Every Sensor's Usable Intervals
 
@@ -74,7 +71,7 @@ Raw data files are not committed (see [`data/raw/README.md`](data/raw/README.md)
 ```
 ├── src/occupancy/       Python package: CO2 regression + integration models
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
-├── tests/               pytest unit tests (38, all passing)
+├── tests/               pytest unit tests (54, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
 ├── docs/MMA3001_Presentation.pptx   13-slide presentation
 ├── docs/api/            HTML API documentation (pdoc, one page per module)
@@ -102,12 +99,13 @@ Trains SVR fresh, replays 12 real test-set predictions, then lets you type in yo
 python scripts/co2_prediction_experiment.py   # CO2 regression (all 4 models)
 python scripts/co2_integration_analysis.py    # Numerical integration analysis
 python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-sensor experiments
-pytest                                         # Run all 38 tests
+python scripts/sensor_matching_analysis.py    # Sensor-matching (lagged correlation) analysis
+pytest                                         # Run all 54 tests
 ```
 
 ## Tests and Documentation
 
-The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **38 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
+The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **54 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
 
 To regenerate the test report and the API docs after changing the code:
 
@@ -115,7 +113,7 @@ To regenerate the test report and the API docs after changing the code:
 pytest -v --junitxml=reports/test_report.xml --html=reports/test_report.html --self-contained-html | tee reports/test_report.txt
 pdoc -o docs/api occupancy occupancy.co2_integration occupancy.co2_models occupancy.co2_regression \
     occupancy.data_loading occupancy.env_sensors occupancy.evaluation occupancy.external_weather \
-    occupancy.preprocessing occupancy.sensor_intervals occupancy.sensor_matching occupancy.sensors \
+    occupancy.preprocessing occupancy.rooms occupancy.sensor_intervals occupancy.sensor_matching occupancy.sensors \
     occupancy.weather_comparison
 ```
 
