@@ -124,7 +124,7 @@ Claude (Claude Code) was used throughout this project for data exploration, Pyth
 **What Claude assisted with**
 - Setting up the package structure and writing the scikit-learn pipeline code
 - Running the four-model comparison and the numerical integration analysis
-- Implementing the sensor-matching analysis (a lagged correlation search, following Keenan Granland's EdStem suggestion to look for a sensor–zone link in the data itself)
+- Implementing the sensor-matching analysis
 - After teaching-team feedback to use the valid time intervals from the other sensors: the interval audit, the pooled and cross-sensor experiments, and the bootstrap significance check — including finding that the "frozen" sensors were re-sending a single stale packet
 - Repository maintenance: restoring a missing module and tests, regenerating the API docs and test report, and correcting the report's zone-matching description to match the code
 - Drafting the report
