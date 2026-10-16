@@ -73,7 +73,6 @@ Raw data files are not committed (see [`data/raw/README.md`](data/raw/README.md)
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
 ├── tests/               pytest unit tests (54, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
-├── docs/MMA3001_Presentation.pptx   13-slide presentation
 ├── docs/api/            HTML API documentation (pdoc, one page per module)
 ├── reports/             JSON experiment results + pytest test report (HTML, JUnit XML, text)
 └── data/                Raw data (gitignored) + processed samples
