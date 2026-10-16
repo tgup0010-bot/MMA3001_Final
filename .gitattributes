@@ -1,0 +1,6 @@
+# Generated files: keep them in the repo (the brief requires HTML docs and a
+# test report) but exclude them from GitHub's language statistics, so the
+# repo is shown as the Python project it is.
+docs/api/** linguist-generated
+reports/test_report.html linguist-generated
+docs/presentation.html linguist-documentation
