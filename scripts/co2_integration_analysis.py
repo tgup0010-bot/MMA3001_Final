@@ -30,7 +30,7 @@ from occupancy.co2_integration import (
     trapezoidal_integral_gap_aware,
 )
 from occupancy.co2_regression import co2_series
-from occupancy.env_sensors import load_env_sensor_log
+from occupancy.processed_data import env_readings_raw_or_processed
 
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
 RESULTS_PATH = Path("reports/co2_integration_results.json")
@@ -49,7 +49,7 @@ MAX_GAP_HOURS = 2.0
 
 
 def main() -> None:
-    env_long = load_env_sensor_log(ENV_RAW_PATH)
+    env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
 
     from occupancy.env_sensors import pivot_variable
 

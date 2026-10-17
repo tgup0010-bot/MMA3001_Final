@@ -21,11 +21,10 @@ import json
 import time
 from pathlib import Path
 
-import pandas as pd
-
-from occupancy.data_loading import load_occupancy_log
-from occupancy.env_sensors import load_env_sensor_log
-from occupancy.preprocessing import resample_occupancy
+from occupancy.processed_data import (
+    env_readings_raw_or_processed,
+    resampled_occupancy_raw_or_processed,
+)
 from occupancy.rooms import room_label
 from occupancy.sensor_matching import build_correlation_matrix, best_match_per_room
 from occupancy.sensors import sensor_label
@@ -49,17 +48,14 @@ def timed(label: str, fn, *args, **kwargs):
 def main() -> None:
     timings: dict[str, float] = {}
 
-    occ_df, t = timed("load_occupancy_log", load_occupancy_log, OCC_RAW_PATH)
-    timings["load_occupancy"] = t
-
-    env_long, t = timed("load_env_sensor_log", load_env_sensor_log, ENV_RAW_PATH)
+    env_long, t = timed("load env readings", env_readings_raw_or_processed, ENV_RAW_PATH)
     timings["load_env"] = t
     print(f"  env rows={len(env_long):,}  sensors={env_long['sensorid'].nunique()}")
 
     occ_resampled, t = timed(
-        "resample_occupancy", resample_occupancy, occ_df, bin_size=BIN_SIZE
+        "load + resample occupancy", resampled_occupancy_raw_or_processed, OCC_RAW_PATH, BIN_SIZE
     )
-    timings["resample_occupancy"] = t
+    timings["load_and_resample_occupancy"] = t
     rooms = sorted(occ_resampled["floorspaceid"].unique())
     print(f"  zones={len(rooms)}: {[room_label(r) for r in rooms]}")
 

@@ -17,8 +17,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from occupancy.env_sensors import load_env_sensor_log, sensor_ids
+from occupancy.env_sensors import sensor_ids
 from occupancy.external_weather import load_bom_weather
+from occupancy.processed_data import bom_dir_raw_or_processed, env_readings_raw_or_processed
 from occupancy.sensors import sensor_label
 from occupancy.weather_comparison import compare_to_bom, daily_indoor_series
 
@@ -34,8 +35,8 @@ COMPARISONS = [
 
 
 def main() -> None:
-    env_long = load_env_sensor_log(ENV_RAW_PATH)
-    bom_df = load_bom_weather(BOM_DIR)
+    env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
+    bom_df = load_bom_weather(bom_dir_raw_or_processed(BOM_DIR))
     print(
         f"BoM data: {len(bom_df)} days, "
         f"{bom_df['date'].min()} to {bom_df['date'].max()}"

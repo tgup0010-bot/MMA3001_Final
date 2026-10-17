@@ -53,8 +53,9 @@ from occupancy.co2_regression import (
     build_co2_supervised_dataset,
     co2_series,
 )
-from occupancy.env_sensors import LOCAL_TZ, load_env_sensor_log
+from occupancy.env_sensors import LOCAL_TZ
 from occupancy.evaluation import chronological_split, evaluate_regression_predictions
+from occupancy.processed_data import env_readings_raw_or_processed, receive_times_raw_or_processed
 from occupancy.sensor_intervals import find_unbroken_intervals, interval_audit
 
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
@@ -97,25 +98,8 @@ ALT_COLOR = "#eb6834"
 
 
 def receive_times(path: Path) -> pd.DataFrame:
-    """Each CO2 reading's own timestamp alongside its server receive time."""
-    raw = pd.read_csv(path, usecols=["sensorid", "jsondata", "createdate"], dtype={"sensorid": str})
-
-    def co2_time(payload: str):
-        try:
-            for item in json.loads(payload):
-                if item["variable"]["name"] == "Carbon dioxide":
-                    return item["values"][0]["time"]
-        except (TypeError, ValueError, KeyError, IndexError):
-            pass
-        return None
-
-    out = pd.DataFrame(
-        {
-            "sensorid": raw["sensorid"],
-            "reading_time": pd.to_datetime(raw["jsondata"].map(co2_time), unit="s", utc=True),
-            "received": pd.to_datetime(raw["createdate"], utc=True, format="mixed"),
-        }
-    ).dropna()
+    """Each CO2 reading's own timestamp, its server receive time, and a stale flag."""
+    out = receive_times_raw_or_processed(path)
     out["stale"] = (out["received"] - out["reading_time"]) > STALE_AFTER
     return out
 
@@ -208,7 +192,7 @@ def chart_results(results: dict) -> None:
 
 
 def main() -> None:
-    env_long = load_env_sensor_log(ENV_RAW_PATH)
+    env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     received = receive_times(ENV_RAW_PATH)
     sensors = sorted(env_long["sensorid"].unique())
 

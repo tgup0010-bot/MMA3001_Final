@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 from occupancy.co2_regression import co2_series
-from occupancy.env_sensors import load_env_sensor_log
+from occupancy.processed_data import env_readings_raw_or_processed
 
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
 RESULTS_PATH = Path("reports/weekday_weekend_results.json")
@@ -34,7 +34,7 @@ WORKING_HOURS = (9, 17)
 
 
 def main() -> None:
-    env_long = load_env_sensor_log(ENV_RAW_PATH)
+    env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     results = {}
     for sensorid, (start, end) in SENSORS.items():
         co2 = co2_series(env_long, sensorid, BIN_SIZE).dropna()

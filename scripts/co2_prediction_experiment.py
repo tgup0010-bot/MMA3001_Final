@@ -33,10 +33,11 @@ from occupancy.co2_regression import (
     building_occupancy_series,
     co2_series,
 )
-from occupancy.data_loading import load_occupancy_log
-from occupancy.env_sensors import load_env_sensor_log
 from occupancy.evaluation import chronological_split, evaluate_regression_predictions
-from occupancy.preprocessing import resample_occupancy
+from occupancy.processed_data import (
+    env_readings_raw_or_processed,
+    resampled_occupancy_raw_or_processed,
+)
 
 OCC_RAW_PATH = Path("data/raw/5occupancySensor_MayToDec2024_9MRows.csv")
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
@@ -85,11 +86,9 @@ def run_feature_set(table: pd.DataFrame, feature_cols: list[str], label: str) ->
 
 
 def main() -> None:
-    occ_df, t = timed("load_occupancy_log", load_occupancy_log, OCC_RAW_PATH)
-    env_long, t = timed("load_env_sensor_log", load_env_sensor_log, ENV_RAW_PATH)
-
+    env_long, t = timed("load env readings", env_readings_raw_or_processed, ENV_RAW_PATH)
     occ_resampled, t = timed(
-        "resample_occupancy", resample_occupancy, occ_df, bin_size=BIN_SIZE
+        "load + resample occupancy", resampled_occupancy_raw_or_processed, OCC_RAW_PATH, BIN_SIZE
     )
     occupancy = building_occupancy_series(occ_resampled)
     co2 = co2_series(env_long, SENSOR_ID, BIN_SIZE)

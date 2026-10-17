@@ -1,5 +1,10 @@
 # Raw data (not tracked in git)
 
+**You do not need these files to run the project.** Compact processed copies
+of everything the analysis uses are committed in `data/processed/` (see the
+main README, Data). The raw files are only needed to regenerate those copies
+with `python scripts/build_processed_data.py`.
+
 These files are excluded from version control (see `.gitignore`) because they
 are large (up to 1.5 GB) and are course-supplied data (MMA3001, Monash
 University) rather than data we own or may redistribute publicly.
@@ -18,10 +23,10 @@ To reproduce this folder, place the following files (as supplied in the
 | `Sensor ID and Locations.xlsx` | 15 KB | Maps device/sensor IDs to physical rooms (partial coverage — see report, Limitations) |
 | `sample_data/` | ~340 MB | Supplementary 2025–2026 batch (PMV, Detailed, Env_data_MSI_Lab) — **not used** in this project; columns for PMV/Detailed are undocumented (see report, Limitations) |
 
-This project's committed code depends on `5EnvSensor_MayToDec2024_180kRows.csv` (all CO2
-experiments, including `scripts/multi_sensor_experiment.py`) and
-`5occupancySensor_MayToDec2024_9MRows.csv` (the occupancy feature and zone matching), plus,
-for development, the small sample above.
+`scripts/build_processed_data.py` reads `5EnvSensor_MayToDec2024_180kRows.csv` and
+`5occupancySensor_MayToDec2024_9MRows.csv` (plus any BoM CSVs in `bom/`) and writes the
+committed copies in `data/processed/`. Every experiment script uses these raw files
+instead of the copies whenever they are present here.
 
 ## `bom/` — external weather data (not course-supplied)
 
@@ -29,9 +34,9 @@ for development, the small sample above.
 CSVs for Moorabbin Airport (station 086077, the nearest official BoM
 station to Monash Clayton), fetched by `scripts/fetch_bom_weather.py` for
 the sensor-vs-outdoor-weather comparison (see report §7). This is public
-BoM data, not course-supplied, but is still gitignored here since it's
-easily reproduced by re-running the fetch script and there's no need to
-commit it. BoM's bulk historical-download service blocks automated
+BoM data, not course-supplied. It is gitignored here, but
+`scripts/build_processed_data.py` copies it to `data/processed/bom/`, which
+is committed: re-running the fetch script cannot reproduce it exactly. BoM's bulk historical-download service blocks automated
 requests as scraping; only their public monthly pages are used, and only
 for their rolling ~15-month free window — re-running the fetch script
 later will pull a different window than what the committed

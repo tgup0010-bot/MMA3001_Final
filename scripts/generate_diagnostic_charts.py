@@ -52,10 +52,11 @@ from occupancy.co2_regression import (
     building_occupancy_series,
     co2_series,
 )
-from occupancy.data_loading import load_occupancy_log
-from occupancy.env_sensors import load_env_sensor_log
 from occupancy.evaluation import chronological_split, evaluate_regression_predictions
-from occupancy.preprocessing import resample_occupancy
+from occupancy.processed_data import (
+    env_readings_raw_or_processed,
+    resampled_occupancy_raw_or_processed,
+)
 
 OCC_RAW_PATH = Path("data/raw/5occupancySensor_MayToDec2024_9MRows.csv")
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
@@ -99,9 +100,8 @@ plt.rcParams.update(
 
 
 def load_supervised_table() -> pd.DataFrame:
-    occ_df = load_occupancy_log(OCC_RAW_PATH)
-    env_long = load_env_sensor_log(ENV_RAW_PATH)
-    occ_resampled = resample_occupancy(occ_df, bin_size=BIN_SIZE)
+    env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
+    occ_resampled = resampled_occupancy_raw_or_processed(OCC_RAW_PATH, BIN_SIZE)
     occupancy = building_occupancy_series(occ_resampled)
     co2 = co2_series(env_long, SENSOR_ID, BIN_SIZE)
     table, info = build_co2_supervised_dataset(co2, occupancy, rolling_window=4)

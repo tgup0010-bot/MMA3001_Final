@@ -21,6 +21,7 @@ Modules:
 - `occupancy.evaluation` -- chronological train/test splitting and prediction-quality metrics.
 - `occupancy.external_weather` -- loading of real Bureau of Meteorology daily weather observations.
 - `occupancy.preprocessing` -- convert the occupancy event log into a regular per-room time grid.
+- `occupancy.processed_data` -- compact processed copies of the raw data, committed so the project runs from a clone.
 - `occupancy.rooms` -- friendly labels for the anonymous occupancy zone identifiers.
 - `occupancy.sensor_intervals` -- unbroken-interval audit of the environmental sensors.
 - `occupancy.sensor_matching` -- data-driven attempt to link environmental sensors to occupancy zones.

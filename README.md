@@ -64,25 +64,38 @@ Source: MMA3001 Dataset 2 (Monash Smart Infrastructure Occupancy and Environment
 
 **17,010 rows used** from 84,576 candidates — 80% dropped due to a 636-day gap in genuine readings and missing lag/rolling features.
 
-Raw data files are not committed (see [`data/raw/README.md`](data/raw/README.md)).
+**Everything needed to run the project is in this repository.** The two raw course files (1.5 GB and 337 MB) exceed GitHub's 100 MB file limit, so compact processed copies of the parts the analysis uses are committed in [`data/processed/`](data/processed/):
+
+| File | Contents |
+|---|---|
+| `env_readings.csv.gz` | Every CO2, temperature and humidity reading from all 5 sensors |
+| `occupancy_15min.csv.gz` | Occupancy log resampled to the 15-minute per-zone grid |
+| `co2_receive_times.csv.gz` | Each CO2 reading's server receive time (stale-packet detection) |
+| `bom/` | Bureau of Meteorology daily observations, Moorabbin Airport |
+
+Every script uses the raw files in `data/raw/` when they are present and falls back to these copies otherwise; both paths give identical results (checked by [`tests/test_processed_data.py`](tests/test_processed_data.py) and by [`scripts/build_processed_data.py`](scripts/build_processed_data.py), which regenerates the copies from the raw files). See [`data/raw/README.md`](data/raw/README.md) for the raw files.
 
 ## Repository Structure
 
 ```
 ├── src/occupancy/       Python package: CO2 regression + integration models
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
-├── tests/               pytest unit tests (54, all passing)
+├── tests/               pytest unit tests (61, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
 ├── docs/api/            HTML API documentation (pdoc, one page per module)
 ├── reports/             JSON experiment results + pytest test report (HTML, JUnit XML, text)
-└── data/                Raw data (gitignored) + processed samples
+└── data/                Processed data (committed) + raw data (gitignored, optional)
 ```
 
 ## Setup
 
 ```bash
+git clone https://github.com/tgup0010-bot/MMA3001_Final.git
+cd MMA3001_Final
 pip install -e ".[dev]"
 ```
+
+No data download is needed: run every command below from the repository root and the scripts read the committed data in `data/processed/`.
 
 ## Live Demo
 
@@ -100,12 +113,13 @@ python scripts/co2_integration_analysis.py    # Numerical integration analysis
 python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-sensor experiments
 python scripts/sensor_matching_analysis.py    # Sensor-matching (lagged correlation) analysis
 python scripts/weekday_weekend_comparison.py  # Weekday vs weekend CO2 for both usable sensors
-pytest                                         # Run all 54 tests
+python scripts/weather_comparison_analysis.py # Sensor vs Bureau of Meteorology weather
+pytest                                         # Run all 61 tests
 ```
 
 ## Tests and Documentation
 
-The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **54 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
+The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **61 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
 
 **HTML API documentation (pdoc):** browse it online at https://tgup0010-bot.github.io/MMA3001_Final/ (GitHub Pages), or open [`docs/api/index.html`](docs/api/index.html) locally.
 

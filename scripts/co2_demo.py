@@ -25,10 +25,11 @@ from occupancy.co2_regression import (
     building_occupancy_series,
     co2_series,
 )
-from occupancy.data_loading import load_occupancy_log
-from occupancy.env_sensors import load_env_sensor_log
 from occupancy.evaluation import chronological_split
-from occupancy.preprocessing import resample_occupancy
+from occupancy.processed_data import (
+    env_readings_raw_or_processed,
+    resampled_occupancy_raw_or_processed,
+)
 
 OCC_RAW_PATH = Path("data/raw/5occupancySensor_MayToDec2024_9MRows.csv")
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
@@ -40,9 +41,8 @@ DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sun
 
 def load_and_train():
     print("Loading data and training the model (SVR, best of the 4 Week 5 methods)...")
-    occ_df = load_occupancy_log(OCC_RAW_PATH)
-    env_long = load_env_sensor_log(ENV_RAW_PATH)
-    occ_resampled = resample_occupancy(occ_df, bin_size=BIN_SIZE)
+    env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
+    occ_resampled = resampled_occupancy_raw_or_processed(OCC_RAW_PATH, BIN_SIZE)
     occupancy = building_occupancy_series(occ_resampled)
     co2 = co2_series(env_long, SENSOR_ID, BIN_SIZE)
     table, _ = build_co2_supervised_dataset(co2, occupancy, rolling_window=4)
