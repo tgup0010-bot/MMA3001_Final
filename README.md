@@ -107,6 +107,8 @@ pytest                                         # Run all 54 tests
 
 The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **54 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
 
+**HTML API documentation (pdoc):** browse it online at https://tgup0010-bot.github.io/MMA3001_Final/ (GitHub Pages), or open [`docs/api/index.html`](docs/api/index.html) locally.
+
 To regenerate the test report and the API docs after changing the code:
 
 ```bash
@@ -133,7 +135,7 @@ Claude (Claude Code) was used throughout this project for data exploration, Pyth
 - Chose CO2 prediction over occupancy classification, as a better fit for the Week 5 regression focus and the available data
 - Selected the sensor and required external validation (Bureau of Meteorology) before accepting it as reliable
 - Included occupancy as a feature to be tested empirically, rather than assumed useful or useless
-- Required an explanation when the two integration methods disagreed by a factor of nine, which exposed the gap-bridging error
+- Required an explanation when the integrated CO₂ exposure came out about four times too large, which exposed the gap-bridging error
 - Brought the teaching team's feedback to Claude, approved the follow-up experiments, and chose to report the non-significant and negative results as they are
 
 **What I verified:** every number in the report was checked against the output files in [`reports/`](reports/), and all results come from scripts that can be rerun to reproduce them.
