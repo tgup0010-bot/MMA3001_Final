@@ -243,11 +243,16 @@ through the room-identifier metadata, which does not reliably link them
 </span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a><span class="k">def</span><span class="w"> </span><span class="nf">sensor_ids</span><span class="p">(</span><span class="n">long_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 </span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="w">    </span><span class="sd">"""Return the distinct sensor identifiers present.</span>
 </span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">    Order matches ``long_df``'s own row order (which :func:`load_env_sensor_log`</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="sd">    sorts by sensor id, then variable, then time) -- not necessarily the</span>
-</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="sd">    order sensors first appear in the raw file.</span>
-</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="sd">    """</span>
-</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">long_df</span><span class="p">[</span><span class="s2">"sensorid"</span><span class="p">]))</span>
+</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">    Args:</span>
+</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="sd">        long_df: Tidy long-format DataFrame as returned by</span>
+</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="sd">            :func:`load_env_sensor_log`.</span>
+</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a>
+</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a><span class="sd">    Returns:</span>
+</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a><span class="sd">        Sensor ids in ``long_df``'s own row order (which</span>
+</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a><span class="sd">        :func:`load_env_sensor_log` sorts by sensor id, then variable, then</span>
+</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a><span class="sd">        time) -- not necessarily the order they first appear in the raw file.</span>
+</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a><span class="sd">    """</span>
+</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">long_df</span><span class="p">[</span><span class="s2">"sensorid"</span><span class="p">]))</span>
 </span></pre></div>
 
 
@@ -452,19 +457,29 @@ single variable as a per-sensor time series.
             <div class="pdoc-code codehilite"><pre><span></span><span id="sensor_ids-157"><a href="#sensor_ids-157"><span class="linenos">157</span></a><span class="k">def</span><span class="w"> </span><span class="nf">sensor_ids</span><span class="p">(</span><span class="n">long_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 </span><span id="sensor_ids-158"><a href="#sensor_ids-158"><span class="linenos">158</span></a><span class="w">    </span><span class="sd">"""Return the distinct sensor identifiers present.</span>
 </span><span id="sensor_ids-159"><a href="#sensor_ids-159"><span class="linenos">159</span></a>
-</span><span id="sensor_ids-160"><a href="#sensor_ids-160"><span class="linenos">160</span></a><span class="sd">    Order matches ``long_df``'s own row order (which :func:`load_env_sensor_log`</span>
-</span><span id="sensor_ids-161"><a href="#sensor_ids-161"><span class="linenos">161</span></a><span class="sd">    sorts by sensor id, then variable, then time) -- not necessarily the</span>
-</span><span id="sensor_ids-162"><a href="#sensor_ids-162"><span class="linenos">162</span></a><span class="sd">    order sensors first appear in the raw file.</span>
-</span><span id="sensor_ids-163"><a href="#sensor_ids-163"><span class="linenos">163</span></a><span class="sd">    """</span>
-</span><span id="sensor_ids-164"><a href="#sensor_ids-164"><span class="linenos">164</span></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">long_df</span><span class="p">[</span><span class="s2">"sensorid"</span><span class="p">]))</span>
+</span><span id="sensor_ids-160"><a href="#sensor_ids-160"><span class="linenos">160</span></a><span class="sd">    Args:</span>
+</span><span id="sensor_ids-161"><a href="#sensor_ids-161"><span class="linenos">161</span></a><span class="sd">        long_df: Tidy long-format DataFrame as returned by</span>
+</span><span id="sensor_ids-162"><a href="#sensor_ids-162"><span class="linenos">162</span></a><span class="sd">            :func:`load_env_sensor_log`.</span>
+</span><span id="sensor_ids-163"><a href="#sensor_ids-163"><span class="linenos">163</span></a>
+</span><span id="sensor_ids-164"><a href="#sensor_ids-164"><span class="linenos">164</span></a><span class="sd">    Returns:</span>
+</span><span id="sensor_ids-165"><a href="#sensor_ids-165"><span class="linenos">165</span></a><span class="sd">        Sensor ids in ``long_df``'s own row order (which</span>
+</span><span id="sensor_ids-166"><a href="#sensor_ids-166"><span class="linenos">166</span></a><span class="sd">        :func:`load_env_sensor_log` sorts by sensor id, then variable, then</span>
+</span><span id="sensor_ids-167"><a href="#sensor_ids-167"><span class="linenos">167</span></a><span class="sd">        time) -- not necessarily the order they first appear in the raw file.</span>
+</span><span id="sensor_ids-168"><a href="#sensor_ids-168"><span class="linenos">168</span></a><span class="sd">    """</span>
+</span><span id="sensor_ids-169"><a href="#sensor_ids-169"><span class="linenos">169</span></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">long_df</span><span class="p">[</span><span class="s2">"sensorid"</span><span class="p">]))</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Return the distinct sensor identifiers present.</p>
 
-<p>Order matches <code>long_df</code>'s own row order (which <code><a href="#load_env_sensor_log">load_env_sensor_log()</a></code>
-sorts by sensor id, then variable, then time) -- not necessarily the
-order sensors first appear in the raw file.</p>
+<p>Args:
+    long_df: Tidy long-format DataFrame as returned by
+        <code><a href="#load_env_sensor_log">load_env_sensor_log()</a></code>.</p>
+
+<p>Returns:
+    Sensor ids in <code>long_df</code>'s own row order (which
+    <code><a href="#load_env_sensor_log">load_env_sensor_log()</a></code> sorts by sensor id, then variable, then
+    time) -- not necessarily the order they first appear in the raw file.</p>
 </div>
 
 

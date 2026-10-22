@@ -92,6 +92,9 @@ def save_env_readings(env_long: pd.DataFrame, path: PathLike = ENV_PROCESSED_PAT
 def load_env_readings(path: PathLike = ENV_PROCESSED_PATH) -> pd.DataFrame:
     """Read a table written by :func:`save_env_readings`.
 
+    Args:
+        path: The ``.csv.gz`` file to read.
+
     Returns:
         A DataFrame with the same columns and dtypes as
         :func:`occupancy.env_sensors.load_env_sensor_log`.
@@ -105,6 +108,15 @@ def env_readings_raw_or_processed(
     raw_path: PathLike, processed_path: PathLike = ENV_PROCESSED_PATH
 ) -> pd.DataFrame:
     """Load the env readings from the raw CSV if present, else the processed copy.
+
+    Args:
+        raw_path: The raw environmental sensor CSV.
+        processed_path: The committed copy written by :func:`save_env_readings`.
+
+    Returns:
+        Long-format readings of :data:`VARIABLES_KEPT`, with the columns of
+        :func:`occupancy.env_sensors.load_env_sensor_log` (time in local
+        time, value in each variable's unit: ppm, degrees C, % RH).
 
     Raises:
         FileNotFoundError: If neither file exists.
@@ -135,7 +147,15 @@ def save_resampled_occupancy(resampled: pd.DataFrame, path: PathLike = OCCUPANCY
 
 
 def load_resampled_occupancy(path: PathLike = OCCUPANCY_PROCESSED_PATH) -> pd.DataFrame:
-    """Read a table written by :func:`save_resampled_occupancy`."""
+    """Read a table written by :func:`save_resampled_occupancy`.
+
+    Args:
+        path: The ``.csv.gz`` file to read.
+
+    Returns:
+        Columns ``floorspaceid``, ``collecteddate`` (local time) and
+        ``occupied`` (1.0, 0.0, or NaN for a gap longer than 2 hours).
+    """
     df = pd.read_csv(path, dtype={"floorspaceid": str})
     df["collecteddate"] = _from_text(df["collecteddate"])
     return df
@@ -147,6 +167,16 @@ def resampled_occupancy_raw_or_processed(
     processed_path: PathLike = OCCUPANCY_PROCESSED_PATH,
 ) -> pd.DataFrame:
     """Resample the raw occupancy log if present, else load the processed grid.
+
+    Args:
+        raw_path: The raw occupancy event-log CSV.
+        bin_size: Grid spacing; the processed copy only serves
+            :data:`PROCESSED_BIN_SIZE`.
+        processed_path: The committed copy written by
+            :func:`save_resampled_occupancy`.
+
+    Returns:
+        The per-room grid, as described in :func:`load_resampled_occupancy`.
 
     Raises:
         FileNotFoundError: If the raw file is missing and either the
@@ -167,6 +197,9 @@ def resampled_occupancy_raw_or_processed(
 def co2_receive_times(raw_path: PathLike) -> pd.DataFrame:
     """Each CO2 reading's own timestamp alongside its server receive time.
 
+    A reading received long after its own timestamp is a re-sent stale
+    packet, not a new measurement -- see ``scripts/multi_sensor_experiment.py``.
+
     Args:
         raw_path: The raw environmental sensor CSV (needs ``createdate``).
 
@@ -176,6 +209,7 @@ def co2_receive_times(raw_path: PathLike) -> pd.DataFrame:
     raw = pd.read_csv(raw_path, usecols=["sensorid", "jsondata", "createdate"], dtype={"sensorid": str})
 
     def co2_time(payload: str):
+        """Return the CO2 reading's Unix time from one JSON payload, or None."""
         try:
             for item in json.loads(payload):
                 if item["variable"]["name"] == "Carbon dioxide":
@@ -194,7 +228,12 @@ def co2_receive_times(raw_path: PathLike) -> pd.DataFrame:
 
 
 def save_receive_times(received: pd.DataFrame, path: PathLike = RECEIVE_TIMES_PROCESSED_PATH) -> None:
-    """Write the output of :func:`co2_receive_times` to ``path``."""
+    """Write the output of :func:`co2_receive_times` to ``path``.
+
+    Args:
+        received: Output of :func:`co2_receive_times`.
+        path: Destination ``.csv.gz`` file.
+    """
     out = received.assign(
         reading_time=_to_text(received["reading_time"]), received=_to_text(received["received"])
     )
@@ -203,7 +242,14 @@ def save_receive_times(received: pd.DataFrame, path: PathLike = RECEIVE_TIMES_PR
 
 
 def load_receive_times(path: PathLike = RECEIVE_TIMES_PROCESSED_PATH) -> pd.DataFrame:
-    """Read a table written by :func:`save_receive_times`."""
+    """Read a table written by :func:`save_receive_times`.
+
+    Args:
+        path: The ``.csv.gz`` file to read.
+
+    Returns:
+        Columns ``sensorid``, ``reading_time`` and ``received`` (both UTC).
+    """
     df = pd.read_csv(path, dtype={"sensorid": str})
     for col in ("reading_time", "received"):
         df[col] = _from_text(df[col], tz="UTC")
@@ -214,6 +260,13 @@ def receive_times_raw_or_processed(
     raw_path: PathLike, processed_path: PathLike = RECEIVE_TIMES_PROCESSED_PATH
 ) -> pd.DataFrame:
     """Compute receive times from the raw CSV if present, else load the processed copy.
+
+    Args:
+        raw_path: The raw environmental sensor CSV.
+        processed_path: The committed copy written by :func:`save_receive_times`.
+
+    Returns:
+        As :func:`co2_receive_times`.
 
     Raises:
         FileNotFoundError: If neither file exists.
@@ -229,7 +282,15 @@ def receive_times_raw_or_processed(
 # --- Bureau of Meteorology CSVs --------------------------------------------
 
 def bom_dir_raw_or_processed(raw_dir: PathLike, processed_dir: PathLike = BOM_PROCESSED_DIR) -> Path:
-    """Return ``raw_dir`` if it holds BoM CSVs, else the committed copy's directory."""
+    """Choose where to read the Bureau of Meteorology CSVs from.
+
+    Args:
+        raw_dir: The fetch script's output directory (``data/raw/bom``).
+        processed_dir: The committed copy's directory.
+
+    Returns:
+        ``raw_dir`` if it holds ``IDCJDW*.csv`` files, else ``processed_dir``.
+    """
     raw_dir = Path(raw_dir)
     if any(raw_dir.glob("IDCJDW*.csv")):
         return raw_dir

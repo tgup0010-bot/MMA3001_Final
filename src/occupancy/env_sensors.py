@@ -156,8 +156,13 @@ def pivot_variable(long_df: pd.DataFrame, variable: str) -> pd.DataFrame:
 def sensor_ids(long_df: pd.DataFrame) -> list[str]:
     """Return the distinct sensor identifiers present.
 
-    Order matches ``long_df``'s own row order (which :func:`load_env_sensor_log`
-    sorts by sensor id, then variable, then time) -- not necessarily the
-    order sensors first appear in the raw file.
+    Args:
+        long_df: Tidy long-format DataFrame as returned by
+            :func:`load_env_sensor_log`.
+
+    Returns:
+        Sensor ids in ``long_df``'s own row order (which
+        :func:`load_env_sensor_log` sorts by sensor id, then variable, then
+        time) -- not necessarily the order they first appear in the raw file.
     """
     return list(pd.unique(long_df["sensorid"]))

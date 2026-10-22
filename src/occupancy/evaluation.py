@@ -1,23 +1,16 @@
 """Chronological train/test splitting and prediction-quality metrics.
 
 Splitting must be done by time, never at random: a randomly shuffled split
-would let the model (or even the Markov baseline) see information from
-"after" the point it is meant to predict, silently inflating every metric.
+would place test rows beside near-identical training rows (CO2 15 minutes
+apart is strongly correlated), so the score would measure interpolation
+rather than forecasting an unseen future, silently inflating every metric.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    accuracy_score,
-    brier_score_loss,
-    f1_score,
-    mean_absolute_error,
-    r2_score,
-    roc_auc_score,
-    root_mean_squared_error,
-)
+from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 
 
 def chronological_split(
@@ -28,22 +21,21 @@ def chronological_split(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp]:
     """Split a table into train/test sets by time, not at random.
 
-    All rows up to a single global cutoff timestamp (computed from
-    ``train_frac`` of the pooled, sorted timestamps across every room) go
-    to training; everything after goes to test. Using one global cutoff
-    (rather than splitting each room independently) keeps the train/test
-    boundary at the same wall-clock moment for every room, which is what
-    "can this model generalise to the future" should mean here.
+    All rows before a single cutoff timestamp (the ``train_frac`` quantile
+    of the sorted timestamps) go to training; everything from the cutoff on
+    goes to test. This matches deployment, where a model only ever sees the
+    past.
 
     Args:
         table: Supervised table (e.g. from
-            :func:`occupancy.features.build_supervised_dataset`).
+            :func:`occupancy.co2_regression.build_co2_supervised_dataset`).
         time_col: Column holding each row's timestamp.
         train_frac: Fraction of rows (by time, not room-balanced count)
             assigned to training.
 
     Returns:
-        ``(train, test, cutoff_time)``.
+        ``(train, test, cutoff_time)``: two DataFrames with the same
+        columns as ``table``, and the first test timestamp.
 
     Raises:
         ValueError: If ``train_frac`` is not strictly between 0 and 1, or
@@ -52,6 +44,7 @@ def chronological_split(
     if not 0.0 < train_frac < 1.0:
         raise ValueError(f"train_frac must be in (0, 1), got {train_frac}")
 
+    # Sort first so "the first 80% of rows" means "the earliest 80%".
     sorted_table = table.sort_values(time_col).reset_index(drop=True)
     cutoff_idx = int(len(sorted_table) * train_frac)
     if cutoff_idx == 0 or cutoff_idx >= len(sorted_table):
@@ -64,42 +57,6 @@ def chronological_split(
     train = sorted_table.iloc[:cutoff_idx].reset_index(drop=True)
     test = sorted_table.iloc[cutoff_idx:].reset_index(drop=True)
     return train, test, cutoff_time
-
-
-def evaluate_predictions(y_true, y_prob, *, threshold: float = 0.5) -> dict:
-    """Compute a standard set of classification metrics.
-
-    Several metrics are reported together (rather than just accuracy)
-    because occupancy is imbalanced (the "occupied" class dominates) --
-    accuracy alone can look deceptively good for a model that just always
-    predicts the majority class.
-
-    Args:
-        y_true: Ground-truth binary labels (0/1).
-        y_prob: Predicted probability of the positive (occupied) class.
-        threshold: Probability threshold used to derive hard predictions
-            for accuracy/F1.
-
-    Returns:
-        A dict with ``accuracy``, ``f1``, ``roc_auc`` (``NaN`` if
-        ``y_true`` has only one class present), ``brier_score``
-        (calibration -- lower is better), ``n`` (rows evaluated) and
-        ``positive_rate`` (base rate of the occupied class, for context).
-    """
-    y_true = np.asarray(y_true, dtype=float)
-    y_prob = np.asarray(y_prob, dtype=float)
-    y_pred = (y_prob >= threshold).astype(int)
-
-    roc_auc = roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else float("nan")
-
-    return {
-        "accuracy": accuracy_score(y_true, y_pred),
-        "f1": f1_score(y_true, y_pred, zero_division=0),
-        "roc_auc": roc_auc,
-        "brier_score": brier_score_loss(y_true, y_prob),
-        "n": int(len(y_true)),
-        "positive_rate": float(np.mean(y_true)),
-    }
 
 
 def evaluate_regression_predictions(y_true, y_pred) -> dict:
@@ -119,6 +76,8 @@ def evaluate_regression_predictions(y_true, y_pred) -> dict:
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
 
+    # Report all three: MAE is the typical error, RMSE weights the rare large
+    # misses (CO2 spikes) more, and R2 compares against predicting the mean.
     return {
         "mae": mean_absolute_error(y_true, y_pred),
         "rmse": root_mean_squared_error(y_true, y_pred),

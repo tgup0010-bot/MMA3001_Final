@@ -30,7 +30,19 @@ from sklearn.tree import DecisionTreeRegressor
 
 
 def build_linear_regression_pipeline(**kwargs) -> Pipeline:
-    """Week 5.1: ordinary least-squares linear regression."""
+    """Week 5.1: ordinary least-squares linear regression.
+
+    Args:
+        **kwargs: Passed to ``sklearn.linear_model.LinearRegression``.
+
+    Returns:
+        An unfitted ``Pipeline`` of ``StandardScaler`` then the regressor.
+        Call ``.fit(X, y)`` with the feature columns in
+        :data:`occupancy.co2_regression.NUMERIC_FEATURES_WITH_OCCUPANCY`
+        (or the without-occupancy set) and the next-bin CO2 target, in ppm.
+    """
+    # Scaling does not change OLS predictions, but it is kept so all four
+    # models see identical preprocessing and the comparison stays fair.
     return Pipeline(
         [("scale", StandardScaler()), ("regress", LinearRegression(**kwargs))]
     )
@@ -39,9 +51,16 @@ def build_linear_regression_pipeline(**kwargs) -> Pipeline:
 def build_decision_tree_regression_pipeline(**kwargs) -> Pipeline:
     """Week 5.2: a single decision tree regressor.
 
-    ``random_state=42`` is fixed by default for reproducibility; pass
-    ``random_state=...`` to override.
+    Args:
+        **kwargs: Passed to ``sklearn.tree.DecisionTreeRegressor``,
+            overriding the defaults ``max_depth=8`` and ``random_state=42``.
+
+    Returns:
+        An unfitted ``Pipeline`` of ``StandardScaler`` then the tree.
     """
+    # Depth 8 allows at most 256 leaves for ~13,600 training rows: enough
+    # for the daily cycle, too few to memorise individual days. An unlimited
+    # tree fits training data almost exactly and extrapolates worst.
     defaults = dict(max_depth=8, random_state=42)
     defaults.update(kwargs)
     return Pipeline(
@@ -50,7 +69,20 @@ def build_decision_tree_regression_pipeline(**kwargs) -> Pipeline:
 
 
 def build_svr_pipeline(**kwargs) -> Pipeline:
-    """Week 5.3: Support Vector Regression (RBF kernel, scikit-learn default)."""
+    """Week 5.3: Support Vector Regression with the RBF kernel.
+
+    Args:
+        **kwargs: Passed to ``sklearn.svm.SVR``, overriding the defaults
+            ``C=10.0`` and ``epsilon=0.5``.
+
+    Returns:
+        An unfitted ``Pipeline`` of ``StandardScaler`` then the SVR.
+    """
+    # Scaling is essential here: the RBF kernel uses Euclidean distance, so
+    # unscaled CO2 (hundreds of ppm) would swamp the 0/1 weekend flag.
+    # epsilon=0.5 ppm: errors smaller than this cost nothing, roughly the
+    # sensor's noise. C=10 penalises errors outside the tube 10x harder
+    # than scikit-learn's default (C=1), i.e. less regularisation.
     defaults = dict(C=10.0, epsilon=0.5)
     defaults.update(kwargs)
     return Pipeline([("scale", StandardScaler()), ("regress", SVR(**defaults))])
@@ -59,10 +91,18 @@ def build_svr_pipeline(**kwargs) -> Pipeline:
 def build_neural_network_regression_pipeline(**kwargs) -> Pipeline:
     """Week 5.4: a small multi-layer-perceptron regressor.
 
-    ``random_state=42`` and a modest ``max_iter`` are fixed by default so
-    runs are reproducible and terminate promptly on this dataset's size;
-    override either via kwargs.
+    Args:
+        **kwargs: Passed to ``sklearn.neural_network.MLPRegressor``,
+            overriding the defaults below.
+
+    Returns:
+        An unfitted ``Pipeline`` of ``StandardScaler`` then the MLP.
     """
+    # The loss is non-convex, so the result depends on the random starting
+    # weights: random_state fixes them for repeatability. early_stopping
+    # holds out 10% of training rows and stops after 10 epochs without
+    # improvement -- the convergence criterion, and a guard against
+    # overfitting a small dataset. 32 -> 16 units is ample for 9 inputs.
     defaults = dict(
         hidden_layer_sizes=(32, 16),
         max_iter=500,

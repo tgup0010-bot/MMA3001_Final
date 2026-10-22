@@ -34,9 +34,6 @@
                     <a class="function" href="#chronological_split">chronological_split</a>
             </li>
             <li>
-                    <a class="function" href="#evaluate_predictions">evaluate_predictions</a>
-            </li>
-            <li>
                     <a class="function" href="#evaluate_regression_predictions">evaluate_regression_predictions</a>
             </li>
     </ul>
@@ -58,141 +55,101 @@
                         <div class="docstring"><p>Chronological train/test splitting and prediction-quality metrics.</p>
 
 <p>Splitting must be done by time, never at random: a randomly shuffled split
-would let the model (or even the Markov baseline) see information from
-"after" the point it is meant to predict, silently inflating every metric.</p>
+would place test rows beside near-identical training rows (CO2 15 minutes
+apart is strongly correlated), so the score would measure interpolation
+rather than forecasting an unseen future, silently inflating every metric.</p>
 </div>
 
                         <input id="mod-evaluation-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 
                         <label class="view-source-button" for="mod-evaluation-view-source"><span>View Source</span></label>
 
-                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="sd">"""Chronological train/test splitting and prediction-quality metrics.</span>
-</span><span id="L-2"><a href="#L-2"><span class="linenos">  2</span></a>
-</span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a><span class="sd">Splitting must be done by time, never at random: a randomly shuffled split</span>
-</span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a><span class="sd">would let the model (or even the Markov baseline) see information from</span>
-</span><span id="L-5"><a href="#L-5"><span class="linenos">  5</span></a><span class="sd">"after" the point it is meant to predict, silently inflating every metric.</span>
-</span><span id="L-6"><a href="#L-6"><span class="linenos">  6</span></a><span class="sd">"""</span>
-</span><span id="L-7"><a href="#L-7"><span class="linenos">  7</span></a>
-</span><span id="L-8"><a href="#L-8"><span class="linenos">  8</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span id="L-9"><a href="#L-9"><span class="linenos">  9</span></a>
-</span><span id="L-10"><a href="#L-10"><span class="linenos"> 10</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span id="L-11"><a href="#L-11"><span class="linenos"> 11</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-</span><span id="L-12"><a href="#L-12"><span class="linenos"> 12</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a>    <span class="n">accuracy_score</span><span class="p">,</span>
-</span><span id="L-14"><a href="#L-14"><span class="linenos"> 14</span></a>    <span class="n">brier_score_loss</span><span class="p">,</span>
-</span><span id="L-15"><a href="#L-15"><span class="linenos"> 15</span></a>    <span class="n">f1_score</span><span class="p">,</span>
-</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a>    <span class="n">mean_absolute_error</span><span class="p">,</span>
-</span><span id="L-17"><a href="#L-17"><span class="linenos"> 17</span></a>    <span class="n">r2_score</span><span class="p">,</span>
-</span><span id="L-18"><a href="#L-18"><span class="linenos"> 18</span></a>    <span class="n">roc_auc_score</span><span class="p">,</span>
-</span><span id="L-19"><a href="#L-19"><span class="linenos"> 19</span></a>    <span class="n">root_mean_squared_error</span><span class="p">,</span>
-</span><span id="L-20"><a href="#L-20"><span class="linenos"> 20</span></a><span class="p">)</span>
-</span><span id="L-21"><a href="#L-21"><span class="linenos"> 21</span></a>
-</span><span id="L-22"><a href="#L-22"><span class="linenos"> 22</span></a>
-</span><span id="L-23"><a href="#L-23"><span class="linenos"> 23</span></a><span class="k">def</span><span class="w"> </span><span class="nf">chronological_split</span><span class="p">(</span>
-</span><span id="L-24"><a href="#L-24"><span class="linenos"> 24</span></a>    <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
-</span><span id="L-25"><a href="#L-25"><span class="linenos"> 25</span></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"collecteddate"</span><span class="p">,</span>
-</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a>    <span class="n">train_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
-</span><span id="L-28"><a href="#L-28"><span class="linenos"> 28</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">]:</span>
-</span><span id="L-29"><a href="#L-29"><span class="linenos"> 29</span></a><span class="w">    </span><span class="sd">"""Split a table into train/test sets by time, not at random.</span>
-</span><span id="L-30"><a href="#L-30"><span class="linenos"> 30</span></a>
-</span><span id="L-31"><a href="#L-31"><span class="linenos"> 31</span></a><span class="sd">    All rows up to a single global cutoff timestamp (computed from</span>
-</span><span id="L-32"><a href="#L-32"><span class="linenos"> 32</span></a><span class="sd">    ``train_frac`` of the pooled, sorted timestamps across every room) go</span>
-</span><span id="L-33"><a href="#L-33"><span class="linenos"> 33</span></a><span class="sd">    to training; everything after goes to test. Using one global cutoff</span>
-</span><span id="L-34"><a href="#L-34"><span class="linenos"> 34</span></a><span class="sd">    (rather than splitting each room independently) keeps the train/test</span>
-</span><span id="L-35"><a href="#L-35"><span class="linenos"> 35</span></a><span class="sd">    boundary at the same wall-clock moment for every room, which is what</span>
-</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a><span class="sd">    "can this model generalise to the future" should mean here.</span>
-</span><span id="L-37"><a href="#L-37"><span class="linenos"> 37</span></a>
-</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a><span class="sd">    Args:</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a><span class="sd">        table: Supervised table (e.g. from</span>
-</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a><span class="sd">            :func:`occupancy.features.build_supervised_dataset`).</span>
-</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a><span class="sd">        time_col: Column holding each row's timestamp.</span>
-</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a><span class="sd">        train_frac: Fraction of rows (by time, not room-balanced count)</span>
-</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a><span class="sd">            assigned to training.</span>
-</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a>
-</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a><span class="sd">    Returns:</span>
-</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a><span class="sd">        ``(train, test, cutoff_time)``.</span>
-</span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a>
-</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a><span class="sd">    Raises:</span>
-</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a><span class="sd">        ValueError: If ``train_frac`` is not strictly between 0 and 1, or</span>
-</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a><span class="sd">            the split would leave either set empty.</span>
-</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a><span class="sd">    """</span>
-</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">train_frac</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">:</span>
-</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"train_frac must be in (0, 1), got </span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a>
-</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a>    <span class="n">sorted_table</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">time_col</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a>    <span class="n">cutoff_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span> <span class="o">*</span> <span class="n">train_frac</span><span class="p">)</span>
-</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a>    <span class="k">if</span> <span class="n">cutoff_idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cutoff_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">):</span>
-</span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a>            <span class="sa">f</span><span class="s2">"train_frac=</span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2"> produced an empty train or test set "</span>
-</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a>            <span class="sa">f</span><span class="s2">"for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows."</span>
-</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a>        <span class="p">)</span>
-</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a>
-</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a>    <span class="n">cutoff_time</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">,</span> <span class="n">time_col</span><span class="p">]</span>
-</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a>    <span class="n">train</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">cutoff_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a>    <span class="n">test</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">:]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a>    <span class="k">return</span> <span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="n">cutoff_time</span>
-</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a>
-</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a>
-</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a><span class="w">    </span><span class="sd">"""Compute a standard set of classification metrics.</span>
-</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a>
-</span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a><span class="sd">    Several metrics are reported together (rather than just accuracy)</span>
-</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a><span class="sd">    because occupancy is imbalanced (the "occupied" class dominates) --</span>
-</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a><span class="sd">    accuracy alone can look deceptively good for a model that just always</span>
-</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a><span class="sd">    predicts the majority class.</span>
-</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>
-</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a><span class="sd">    Args:</span>
-</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a><span class="sd">        y_true: Ground-truth binary labels (0/1).</span>
-</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="sd">        y_prob: Predicted probability of the positive (occupied) class.</span>
-</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a><span class="sd">        threshold: Probability threshold used to derive hard predictions</span>
-</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a><span class="sd">            for accuracy/F1.</span>
-</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a>
-</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a><span class="sd">    Returns:</span>
-</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a><span class="sd">        A dict with ``accuracy``, ``f1``, ``roc_auc`` (``NaN`` if</span>
-</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a><span class="sd">        ``y_true`` has only one class present), ``brier_score``</span>
-</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a><span class="sd">        (calibration -- lower is better), ``n`` (rows evaluated) and</span>
-</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="sd">        ``positive_rate`` (base rate of the occupied class, for context).</span>
-</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a><span class="sd">    """</span>
-</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a>    <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a>    <span class="n">y_prob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_prob</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a>    <span class="n">y_pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_prob</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a>
-</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a>    <span class="n">roc_auc</span> <span class="o">=</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_true</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
-</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a>    <span class="k">return</span> <span class="p">{</span>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a>        <span class="s2">"accuracy"</span><span class="p">:</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a>        <span class="s2">"f1"</span><span class="p">:</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">zero_division</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
-</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a>        <span class="s2">"roc_auc"</span><span class="p">:</span> <span class="n">roc_auc</span><span class="p">,</span>
-</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a>        <span class="s2">"brier_score"</span><span class="p">:</span> <span class="n">brier_score_loss</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">),</span>
-</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
-</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a>        <span class="s2">"positive_rate"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
-</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>    <span class="p">}</span>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>
-</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_regression_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="w">    </span><span class="sd">"""Compute the standard MMA3001 Week 5.5 regression metrics.</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">    Args:</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="sd">        y_true: Ground-truth continuous target values.</span>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">        y_pred: Predicted values.</span>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="sd">    Returns:</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="sd">        A dict with ``mae`` (mean absolute error, in target units),</span>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a><span class="sd">        ``rmse`` (root mean squared error, in target units, more</span>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a><span class="sd">        sensitive to large errors than MAE), ``r2`` (fraction of target</span>
-</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a><span class="sd">        variance explained relative to a mean-prediction baseline), and</span>
-</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="sd">        ``n`` (rows evaluated).</span>
-</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a><span class="sd">    """</span>
-</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a>    <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a>    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a>
-</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a>    <span class="k">return</span> <span class="p">{</span>
-</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>        <span class="s2">"mae"</span><span class="p">:</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a>        <span class="s2">"rmse"</span><span class="p">:</span> <span class="n">root_mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>        <span class="s2">"r2"</span><span class="p">:</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
-</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>    <span class="p">}</span>
+                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos"> 1</span></a><span class="sd">"""Chronological train/test splitting and prediction-quality metrics.</span>
+</span><span id="L-2"><a href="#L-2"><span class="linenos"> 2</span></a>
+</span><span id="L-3"><a href="#L-3"><span class="linenos"> 3</span></a><span class="sd">Splitting must be done by time, never at random: a randomly shuffled split</span>
+</span><span id="L-4"><a href="#L-4"><span class="linenos"> 4</span></a><span class="sd">would place test rows beside near-identical training rows (CO2 15 minutes</span>
+</span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a><span class="sd">apart is strongly correlated), so the score would measure interpolation</span>
+</span><span id="L-6"><a href="#L-6"><span class="linenos"> 6</span></a><span class="sd">rather than forecasting an unseen future, silently inflating every metric.</span>
+</span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a><span class="sd">"""</span>
+</span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a>
+</span><span id="L-9"><a href="#L-9"><span class="linenos"> 9</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a>
+</span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">r2_score</span><span class="p">,</span> <span class="n">root_mean_squared_error</span>
+</span><span id="L-14"><a href="#L-14"><span class="linenos">14</span></a>
+</span><span id="L-15"><a href="#L-15"><span class="linenos">15</span></a>
+</span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a><span class="k">def</span><span class="w"> </span><span class="nf">chronological_split</span><span class="p">(</span>
+</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a>    <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"collecteddate"</span><span class="p">,</span>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a>    <span class="n">train_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
+</span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">]:</span>
+</span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a><span class="w">    </span><span class="sd">"""Split a table into train/test sets by time, not at random.</span>
+</span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a>
+</span><span id="L-24"><a href="#L-24"><span class="linenos">24</span></a><span class="sd">    All rows before a single cutoff timestamp (the ``train_frac`` quantile</span>
+</span><span id="L-25"><a href="#L-25"><span class="linenos">25</span></a><span class="sd">    of the sorted timestamps) go to training; everything from the cutoff on</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos">26</span></a><span class="sd">    goes to test. This matches deployment, where a model only ever sees the</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos">27</span></a><span class="sd">    past.</span>
+</span><span id="L-28"><a href="#L-28"><span class="linenos">28</span></a>
+</span><span id="L-29"><a href="#L-29"><span class="linenos">29</span></a><span class="sd">    Args:</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos">30</span></a><span class="sd">        table: Supervised table (e.g. from</span>
+</span><span id="L-31"><a href="#L-31"><span class="linenos">31</span></a><span class="sd">            :func:`occupancy.co2_regression.build_co2_supervised_dataset`).</span>
+</span><span id="L-32"><a href="#L-32"><span class="linenos">32</span></a><span class="sd">        time_col: Column holding each row's timestamp.</span>
+</span><span id="L-33"><a href="#L-33"><span class="linenos">33</span></a><span class="sd">        train_frac: Fraction of rows (by time, not room-balanced count)</span>
+</span><span id="L-34"><a href="#L-34"><span class="linenos">34</span></a><span class="sd">            assigned to training.</span>
+</span><span id="L-35"><a href="#L-35"><span class="linenos">35</span></a>
+</span><span id="L-36"><a href="#L-36"><span class="linenos">36</span></a><span class="sd">    Returns:</span>
+</span><span id="L-37"><a href="#L-37"><span class="linenos">37</span></a><span class="sd">        ``(train, test, cutoff_time)``: two DataFrames with the same</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos">38</span></a><span class="sd">        columns as ``table``, and the first test timestamp.</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos">39</span></a>
+</span><span id="L-40"><a href="#L-40"><span class="linenos">40</span></a><span class="sd">    Raises:</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos">41</span></a><span class="sd">        ValueError: If ``train_frac`` is not strictly between 0 and 1, or</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos">42</span></a><span class="sd">            the split would leave either set empty.</span>
+</span><span id="L-43"><a href="#L-43"><span class="linenos">43</span></a><span class="sd">    """</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos">44</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">train_frac</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">:</span>
+</span><span id="L-45"><a href="#L-45"><span class="linenos">45</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"train_frac must be in (0, 1), got </span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="L-46"><a href="#L-46"><span class="linenos">46</span></a>
+</span><span id="L-47"><a href="#L-47"><span class="linenos">47</span></a>    <span class="c1"># Sort first so "the first 80% of rows" means "the earliest 80%".</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos">48</span></a>    <span class="n">sorted_table</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">time_col</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="L-49"><a href="#L-49"><span class="linenos">49</span></a>    <span class="n">cutoff_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span> <span class="o">*</span> <span class="n">train_frac</span><span class="p">)</span>
+</span><span id="L-50"><a href="#L-50"><span class="linenos">50</span></a>    <span class="k">if</span> <span class="n">cutoff_idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cutoff_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">):</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos">51</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos">52</span></a>            <span class="sa">f</span><span class="s2">"train_frac=</span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2"> produced an empty train or test set "</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos">53</span></a>            <span class="sa">f</span><span class="s2">"for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows."</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos">54</span></a>        <span class="p">)</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos">55</span></a>
+</span><span id="L-56"><a href="#L-56"><span class="linenos">56</span></a>    <span class="n">cutoff_time</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">,</span> <span class="n">time_col</span><span class="p">]</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos">57</span></a>    <span class="n">train</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">cutoff_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="L-58"><a href="#L-58"><span class="linenos">58</span></a>    <span class="n">test</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">:]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos">59</span></a>    <span class="k">return</span> <span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="n">cutoff_time</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos">60</span></a>
+</span><span id="L-61"><a href="#L-61"><span class="linenos">61</span></a>
+</span><span id="L-62"><a href="#L-62"><span class="linenos">62</span></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_regression_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="L-63"><a href="#L-63"><span class="linenos">63</span></a><span class="w">    </span><span class="sd">"""Compute the standard MMA3001 Week 5.5 regression metrics.</span>
+</span><span id="L-64"><a href="#L-64"><span class="linenos">64</span></a>
+</span><span id="L-65"><a href="#L-65"><span class="linenos">65</span></a><span class="sd">    Args:</span>
+</span><span id="L-66"><a href="#L-66"><span class="linenos">66</span></a><span class="sd">        y_true: Ground-truth continuous target values.</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos">67</span></a><span class="sd">        y_pred: Predicted values.</span>
+</span><span id="L-68"><a href="#L-68"><span class="linenos">68</span></a>
+</span><span id="L-69"><a href="#L-69"><span class="linenos">69</span></a><span class="sd">    Returns:</span>
+</span><span id="L-70"><a href="#L-70"><span class="linenos">70</span></a><span class="sd">        A dict with ``mae`` (mean absolute error, in target units),</span>
+</span><span id="L-71"><a href="#L-71"><span class="linenos">71</span></a><span class="sd">        ``rmse`` (root mean squared error, in target units, more</span>
+</span><span id="L-72"><a href="#L-72"><span class="linenos">72</span></a><span class="sd">        sensitive to large errors than MAE), ``r2`` (fraction of target</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos">73</span></a><span class="sd">        variance explained relative to a mean-prediction baseline), and</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos">74</span></a><span class="sd">        ``n`` (rows evaluated).</span>
+</span><span id="L-75"><a href="#L-75"><span class="linenos">75</span></a><span class="sd">    """</span>
+</span><span id="L-76"><a href="#L-76"><span class="linenos">76</span></a>    <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span id="L-77"><a href="#L-77"><span class="linenos">77</span></a>    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span id="L-78"><a href="#L-78"><span class="linenos">78</span></a>
+</span><span id="L-79"><a href="#L-79"><span class="linenos">79</span></a>    <span class="c1"># Report all three: MAE is the typical error, RMSE weights the rare large</span>
+</span><span id="L-80"><a href="#L-80"><span class="linenos">80</span></a>    <span class="c1"># misses (CO2 spikes) more, and R2 compares against predicting the mean.</span>
+</span><span id="L-81"><a href="#L-81"><span class="linenos">81</span></a>    <span class="k">return</span> <span class="p">{</span>
+</span><span id="L-82"><a href="#L-82"><span class="linenos">82</span></a>        <span class="s2">"mae"</span><span class="p">:</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
+</span><span id="L-83"><a href="#L-83"><span class="linenos">83</span></a>        <span class="s2">"rmse"</span><span class="p">:</span> <span class="n">root_mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos">84</span></a>        <span class="s2">"r2"</span><span class="p">:</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
+</span><span id="L-85"><a href="#L-85"><span class="linenos">85</span></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
+</span><span id="L-86"><a href="#L-86"><span class="linenos">86</span></a>    <span class="p">}</span>
 </span></pre></div>
 
 
@@ -208,145 +165,74 @@ would let the model (or even the Markov baseline) see information from
 
     </div>
     <a class="headerlink" href="#chronological_split"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="chronological_split-24"><a href="#chronological_split-24"><span class="linenos">24</span></a><span class="k">def</span><span class="w"> </span><span class="nf">chronological_split</span><span class="p">(</span>
-</span><span id="chronological_split-25"><a href="#chronological_split-25"><span class="linenos">25</span></a>    <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
-</span><span id="chronological_split-26"><a href="#chronological_split-26"><span class="linenos">26</span></a>    <span class="o">*</span><span class="p">,</span>
-</span><span id="chronological_split-27"><a href="#chronological_split-27"><span class="linenos">27</span></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"collecteddate"</span><span class="p">,</span>
-</span><span id="chronological_split-28"><a href="#chronological_split-28"><span class="linenos">28</span></a>    <span class="n">train_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
-</span><span id="chronological_split-29"><a href="#chronological_split-29"><span class="linenos">29</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">]:</span>
-</span><span id="chronological_split-30"><a href="#chronological_split-30"><span class="linenos">30</span></a><span class="w">    </span><span class="sd">"""Split a table into train/test sets by time, not at random.</span>
-</span><span id="chronological_split-31"><a href="#chronological_split-31"><span class="linenos">31</span></a>
-</span><span id="chronological_split-32"><a href="#chronological_split-32"><span class="linenos">32</span></a><span class="sd">    All rows up to a single global cutoff timestamp (computed from</span>
-</span><span id="chronological_split-33"><a href="#chronological_split-33"><span class="linenos">33</span></a><span class="sd">    ``train_frac`` of the pooled, sorted timestamps across every room) go</span>
-</span><span id="chronological_split-34"><a href="#chronological_split-34"><span class="linenos">34</span></a><span class="sd">    to training; everything after goes to test. Using one global cutoff</span>
-</span><span id="chronological_split-35"><a href="#chronological_split-35"><span class="linenos">35</span></a><span class="sd">    (rather than splitting each room independently) keeps the train/test</span>
-</span><span id="chronological_split-36"><a href="#chronological_split-36"><span class="linenos">36</span></a><span class="sd">    boundary at the same wall-clock moment for every room, which is what</span>
-</span><span id="chronological_split-37"><a href="#chronological_split-37"><span class="linenos">37</span></a><span class="sd">    "can this model generalise to the future" should mean here.</span>
-</span><span id="chronological_split-38"><a href="#chronological_split-38"><span class="linenos">38</span></a>
-</span><span id="chronological_split-39"><a href="#chronological_split-39"><span class="linenos">39</span></a><span class="sd">    Args:</span>
-</span><span id="chronological_split-40"><a href="#chronological_split-40"><span class="linenos">40</span></a><span class="sd">        table: Supervised table (e.g. from</span>
-</span><span id="chronological_split-41"><a href="#chronological_split-41"><span class="linenos">41</span></a><span class="sd">            :func:`occupancy.features.build_supervised_dataset`).</span>
-</span><span id="chronological_split-42"><a href="#chronological_split-42"><span class="linenos">42</span></a><span class="sd">        time_col: Column holding each row's timestamp.</span>
-</span><span id="chronological_split-43"><a href="#chronological_split-43"><span class="linenos">43</span></a><span class="sd">        train_frac: Fraction of rows (by time, not room-balanced count)</span>
-</span><span id="chronological_split-44"><a href="#chronological_split-44"><span class="linenos">44</span></a><span class="sd">            assigned to training.</span>
-</span><span id="chronological_split-45"><a href="#chronological_split-45"><span class="linenos">45</span></a>
-</span><span id="chronological_split-46"><a href="#chronological_split-46"><span class="linenos">46</span></a><span class="sd">    Returns:</span>
-</span><span id="chronological_split-47"><a href="#chronological_split-47"><span class="linenos">47</span></a><span class="sd">        ``(train, test, cutoff_time)``.</span>
-</span><span id="chronological_split-48"><a href="#chronological_split-48"><span class="linenos">48</span></a>
-</span><span id="chronological_split-49"><a href="#chronological_split-49"><span class="linenos">49</span></a><span class="sd">    Raises:</span>
-</span><span id="chronological_split-50"><a href="#chronological_split-50"><span class="linenos">50</span></a><span class="sd">        ValueError: If ``train_frac`` is not strictly between 0 and 1, or</span>
-</span><span id="chronological_split-51"><a href="#chronological_split-51"><span class="linenos">51</span></a><span class="sd">            the split would leave either set empty.</span>
-</span><span id="chronological_split-52"><a href="#chronological_split-52"><span class="linenos">52</span></a><span class="sd">    """</span>
-</span><span id="chronological_split-53"><a href="#chronological_split-53"><span class="linenos">53</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">train_frac</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">:</span>
-</span><span id="chronological_split-54"><a href="#chronological_split-54"><span class="linenos">54</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"train_frac must be in (0, 1), got </span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="chronological_split-55"><a href="#chronological_split-55"><span class="linenos">55</span></a>
-</span><span id="chronological_split-56"><a href="#chronological_split-56"><span class="linenos">56</span></a>    <span class="n">sorted_table</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">time_col</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="chronological_split-57"><a href="#chronological_split-57"><span class="linenos">57</span></a>    <span class="n">cutoff_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span> <span class="o">*</span> <span class="n">train_frac</span><span class="p">)</span>
-</span><span id="chronological_split-58"><a href="#chronological_split-58"><span class="linenos">58</span></a>    <span class="k">if</span> <span class="n">cutoff_idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cutoff_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">):</span>
-</span><span id="chronological_split-59"><a href="#chronological_split-59"><span class="linenos">59</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span id="chronological_split-60"><a href="#chronological_split-60"><span class="linenos">60</span></a>            <span class="sa">f</span><span class="s2">"train_frac=</span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2"> produced an empty train or test set "</span>
-</span><span id="chronological_split-61"><a href="#chronological_split-61"><span class="linenos">61</span></a>            <span class="sa">f</span><span class="s2">"for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows."</span>
-</span><span id="chronological_split-62"><a href="#chronological_split-62"><span class="linenos">62</span></a>        <span class="p">)</span>
-</span><span id="chronological_split-63"><a href="#chronological_split-63"><span class="linenos">63</span></a>
-</span><span id="chronological_split-64"><a href="#chronological_split-64"><span class="linenos">64</span></a>    <span class="n">cutoff_time</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">,</span> <span class="n">time_col</span><span class="p">]</span>
-</span><span id="chronological_split-65"><a href="#chronological_split-65"><span class="linenos">65</span></a>    <span class="n">train</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">cutoff_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="chronological_split-66"><a href="#chronological_split-66"><span class="linenos">66</span></a>    <span class="n">test</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">:]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="chronological_split-67"><a href="#chronological_split-67"><span class="linenos">67</span></a>    <span class="k">return</span> <span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="n">cutoff_time</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="chronological_split-17"><a href="#chronological_split-17"><span class="linenos">17</span></a><span class="k">def</span><span class="w"> </span><span class="nf">chronological_split</span><span class="p">(</span>
+</span><span id="chronological_split-18"><a href="#chronological_split-18"><span class="linenos">18</span></a>    <span class="n">table</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+</span><span id="chronological_split-19"><a href="#chronological_split-19"><span class="linenos">19</span></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="chronological_split-20"><a href="#chronological_split-20"><span class="linenos">20</span></a>    <span class="n">time_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"collecteddate"</span><span class="p">,</span>
+</span><span id="chronological_split-21"><a href="#chronological_split-21"><span class="linenos">21</span></a>    <span class="n">train_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
+</span><span id="chronological_split-22"><a href="#chronological_split-22"><span class="linenos">22</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">]:</span>
+</span><span id="chronological_split-23"><a href="#chronological_split-23"><span class="linenos">23</span></a><span class="w">    </span><span class="sd">"""Split a table into train/test sets by time, not at random.</span>
+</span><span id="chronological_split-24"><a href="#chronological_split-24"><span class="linenos">24</span></a>
+</span><span id="chronological_split-25"><a href="#chronological_split-25"><span class="linenos">25</span></a><span class="sd">    All rows before a single cutoff timestamp (the ``train_frac`` quantile</span>
+</span><span id="chronological_split-26"><a href="#chronological_split-26"><span class="linenos">26</span></a><span class="sd">    of the sorted timestamps) go to training; everything from the cutoff on</span>
+</span><span id="chronological_split-27"><a href="#chronological_split-27"><span class="linenos">27</span></a><span class="sd">    goes to test. This matches deployment, where a model only ever sees the</span>
+</span><span id="chronological_split-28"><a href="#chronological_split-28"><span class="linenos">28</span></a><span class="sd">    past.</span>
+</span><span id="chronological_split-29"><a href="#chronological_split-29"><span class="linenos">29</span></a>
+</span><span id="chronological_split-30"><a href="#chronological_split-30"><span class="linenos">30</span></a><span class="sd">    Args:</span>
+</span><span id="chronological_split-31"><a href="#chronological_split-31"><span class="linenos">31</span></a><span class="sd">        table: Supervised table (e.g. from</span>
+</span><span id="chronological_split-32"><a href="#chronological_split-32"><span class="linenos">32</span></a><span class="sd">            :func:`occupancy.co2_regression.build_co2_supervised_dataset`).</span>
+</span><span id="chronological_split-33"><a href="#chronological_split-33"><span class="linenos">33</span></a><span class="sd">        time_col: Column holding each row's timestamp.</span>
+</span><span id="chronological_split-34"><a href="#chronological_split-34"><span class="linenos">34</span></a><span class="sd">        train_frac: Fraction of rows (by time, not room-balanced count)</span>
+</span><span id="chronological_split-35"><a href="#chronological_split-35"><span class="linenos">35</span></a><span class="sd">            assigned to training.</span>
+</span><span id="chronological_split-36"><a href="#chronological_split-36"><span class="linenos">36</span></a>
+</span><span id="chronological_split-37"><a href="#chronological_split-37"><span class="linenos">37</span></a><span class="sd">    Returns:</span>
+</span><span id="chronological_split-38"><a href="#chronological_split-38"><span class="linenos">38</span></a><span class="sd">        ``(train, test, cutoff_time)``: two DataFrames with the same</span>
+</span><span id="chronological_split-39"><a href="#chronological_split-39"><span class="linenos">39</span></a><span class="sd">        columns as ``table``, and the first test timestamp.</span>
+</span><span id="chronological_split-40"><a href="#chronological_split-40"><span class="linenos">40</span></a>
+</span><span id="chronological_split-41"><a href="#chronological_split-41"><span class="linenos">41</span></a><span class="sd">    Raises:</span>
+</span><span id="chronological_split-42"><a href="#chronological_split-42"><span class="linenos">42</span></a><span class="sd">        ValueError: If ``train_frac`` is not strictly between 0 and 1, or</span>
+</span><span id="chronological_split-43"><a href="#chronological_split-43"><span class="linenos">43</span></a><span class="sd">            the split would leave either set empty.</span>
+</span><span id="chronological_split-44"><a href="#chronological_split-44"><span class="linenos">44</span></a><span class="sd">    """</span>
+</span><span id="chronological_split-45"><a href="#chronological_split-45"><span class="linenos">45</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">train_frac</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">:</span>
+</span><span id="chronological_split-46"><a href="#chronological_split-46"><span class="linenos">46</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"train_frac must be in (0, 1), got </span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="chronological_split-47"><a href="#chronological_split-47"><span class="linenos">47</span></a>
+</span><span id="chronological_split-48"><a href="#chronological_split-48"><span class="linenos">48</span></a>    <span class="c1"># Sort first so "the first 80% of rows" means "the earliest 80%".</span>
+</span><span id="chronological_split-49"><a href="#chronological_split-49"><span class="linenos">49</span></a>    <span class="n">sorted_table</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">time_col</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="chronological_split-50"><a href="#chronological_split-50"><span class="linenos">50</span></a>    <span class="n">cutoff_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span> <span class="o">*</span> <span class="n">train_frac</span><span class="p">)</span>
+</span><span id="chronological_split-51"><a href="#chronological_split-51"><span class="linenos">51</span></a>    <span class="k">if</span> <span class="n">cutoff_idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">cutoff_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">):</span>
+</span><span id="chronological_split-52"><a href="#chronological_split-52"><span class="linenos">52</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="chronological_split-53"><a href="#chronological_split-53"><span class="linenos">53</span></a>            <span class="sa">f</span><span class="s2">"train_frac=</span><span class="si">{</span><span class="n">train_frac</span><span class="si">}</span><span class="s2"> produced an empty train or test set "</span>
+</span><span id="chronological_split-54"><a href="#chronological_split-54"><span class="linenos">54</span></a>            <span class="sa">f</span><span class="s2">"for </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_table</span><span class="p">)</span><span class="si">}</span><span class="s2"> rows."</span>
+</span><span id="chronological_split-55"><a href="#chronological_split-55"><span class="linenos">55</span></a>        <span class="p">)</span>
+</span><span id="chronological_split-56"><a href="#chronological_split-56"><span class="linenos">56</span></a>
+</span><span id="chronological_split-57"><a href="#chronological_split-57"><span class="linenos">57</span></a>    <span class="n">cutoff_time</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">,</span> <span class="n">time_col</span><span class="p">]</span>
+</span><span id="chronological_split-58"><a href="#chronological_split-58"><span class="linenos">58</span></a>    <span class="n">train</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">cutoff_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="chronological_split-59"><a href="#chronological_split-59"><span class="linenos">59</span></a>    <span class="n">test</span> <span class="o">=</span> <span class="n">sorted_table</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">cutoff_idx</span><span class="p">:]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="chronological_split-60"><a href="#chronological_split-60"><span class="linenos">60</span></a>    <span class="k">return</span> <span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="n">cutoff_time</span>
 </span></pre></div>
 
 
             <div class="docstring"><p>Split a table into train/test sets by time, not at random.</p>
 
-<p>All rows up to a single global cutoff timestamp (computed from
-<code>train_frac</code> of the pooled, sorted timestamps across every room) go
-to training; everything after goes to test. Using one global cutoff
-(rather than splitting each room independently) keeps the train/test
-boundary at the same wall-clock moment for every room, which is what
-"can this model generalise to the future" should mean here.</p>
+<p>All rows before a single cutoff timestamp (the <code>train_frac</code> quantile
+of the sorted timestamps) go to training; everything from the cutoff on
+goes to test. This matches deployment, where a model only ever sees the
+past.</p>
 
 <p>Args:
     table: Supervised table (e.g. from
-        <code>occupancy.features.build_supervised_dataset()</code>).
+        <code><a href="../occupancy.html#build_co2_supervised_dataset">occupancy.co2_regression.build_co2_supervised_dataset()</a></code>).
     time_col: Column holding each row's timestamp.
     train_frac: Fraction of rows (by time, not room-balanced count)
         assigned to training.</p>
 
 <p>Returns:
-    <code>(train, test, cutoff_time)</code>.</p>
+    <code>(train, test, cutoff_time)</code>: two DataFrames with the same
+    columns as <code>table</code>, and the first test timestamp.</p>
 
 <p>Raises:
     ValueError: If <code>train_frac</code> is not strictly between 0 and 1, or
         the split would leave either set empty.</p>
-</div>
-
-
-                </section>
-                <section id="evaluate_predictions">
-                            <input id="evaluate_predictions-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-<div class="attr function">
-            
-        <span class="def">def</span>
-        <span class="name">evaluate_predictions</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">y_true</span>, </span><span class="param"><span class="n">y_prob</span>, </span><span class="param"><span class="o">*</span>, </span><span class="param"><span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
-
-                <label class="view-source-button" for="evaluate_predictions-view-source"><span>View Source</span></label>
-
-    </div>
-    <a class="headerlink" href="#evaluate_predictions"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="evaluate_predictions-70"><a href="#evaluate_predictions-70"><span class="linenos"> 70</span></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="evaluate_predictions-71"><a href="#evaluate_predictions-71"><span class="linenos"> 71</span></a><span class="w">    </span><span class="sd">"""Compute a standard set of classification metrics.</span>
-</span><span id="evaluate_predictions-72"><a href="#evaluate_predictions-72"><span class="linenos"> 72</span></a>
-</span><span id="evaluate_predictions-73"><a href="#evaluate_predictions-73"><span class="linenos"> 73</span></a><span class="sd">    Several metrics are reported together (rather than just accuracy)</span>
-</span><span id="evaluate_predictions-74"><a href="#evaluate_predictions-74"><span class="linenos"> 74</span></a><span class="sd">    because occupancy is imbalanced (the "occupied" class dominates) --</span>
-</span><span id="evaluate_predictions-75"><a href="#evaluate_predictions-75"><span class="linenos"> 75</span></a><span class="sd">    accuracy alone can look deceptively good for a model that just always</span>
-</span><span id="evaluate_predictions-76"><a href="#evaluate_predictions-76"><span class="linenos"> 76</span></a><span class="sd">    predicts the majority class.</span>
-</span><span id="evaluate_predictions-77"><a href="#evaluate_predictions-77"><span class="linenos"> 77</span></a>
-</span><span id="evaluate_predictions-78"><a href="#evaluate_predictions-78"><span class="linenos"> 78</span></a><span class="sd">    Args:</span>
-</span><span id="evaluate_predictions-79"><a href="#evaluate_predictions-79"><span class="linenos"> 79</span></a><span class="sd">        y_true: Ground-truth binary labels (0/1).</span>
-</span><span id="evaluate_predictions-80"><a href="#evaluate_predictions-80"><span class="linenos"> 80</span></a><span class="sd">        y_prob: Predicted probability of the positive (occupied) class.</span>
-</span><span id="evaluate_predictions-81"><a href="#evaluate_predictions-81"><span class="linenos"> 81</span></a><span class="sd">        threshold: Probability threshold used to derive hard predictions</span>
-</span><span id="evaluate_predictions-82"><a href="#evaluate_predictions-82"><span class="linenos"> 82</span></a><span class="sd">            for accuracy/F1.</span>
-</span><span id="evaluate_predictions-83"><a href="#evaluate_predictions-83"><span class="linenos"> 83</span></a>
-</span><span id="evaluate_predictions-84"><a href="#evaluate_predictions-84"><span class="linenos"> 84</span></a><span class="sd">    Returns:</span>
-</span><span id="evaluate_predictions-85"><a href="#evaluate_predictions-85"><span class="linenos"> 85</span></a><span class="sd">        A dict with ``accuracy``, ``f1``, ``roc_auc`` (``NaN`` if</span>
-</span><span id="evaluate_predictions-86"><a href="#evaluate_predictions-86"><span class="linenos"> 86</span></a><span class="sd">        ``y_true`` has only one class present), ``brier_score``</span>
-</span><span id="evaluate_predictions-87"><a href="#evaluate_predictions-87"><span class="linenos"> 87</span></a><span class="sd">        (calibration -- lower is better), ``n`` (rows evaluated) and</span>
-</span><span id="evaluate_predictions-88"><a href="#evaluate_predictions-88"><span class="linenos"> 88</span></a><span class="sd">        ``positive_rate`` (base rate of the occupied class, for context).</span>
-</span><span id="evaluate_predictions-89"><a href="#evaluate_predictions-89"><span class="linenos"> 89</span></a><span class="sd">    """</span>
-</span><span id="evaluate_predictions-90"><a href="#evaluate_predictions-90"><span class="linenos"> 90</span></a>    <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="evaluate_predictions-91"><a href="#evaluate_predictions-91"><span class="linenos"> 91</span></a>    <span class="n">y_prob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_prob</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="evaluate_predictions-92"><a href="#evaluate_predictions-92"><span class="linenos"> 92</span></a>    <span class="n">y_pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_prob</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-</span><span id="evaluate_predictions-93"><a href="#evaluate_predictions-93"><span class="linenos"> 93</span></a>
-</span><span id="evaluate_predictions-94"><a href="#evaluate_predictions-94"><span class="linenos"> 94</span></a>    <span class="n">roc_auc</span> <span class="o">=</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y_true</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
-</span><span id="evaluate_predictions-95"><a href="#evaluate_predictions-95"><span class="linenos"> 95</span></a>
-</span><span id="evaluate_predictions-96"><a href="#evaluate_predictions-96"><span class="linenos"> 96</span></a>    <span class="k">return</span> <span class="p">{</span>
-</span><span id="evaluate_predictions-97"><a href="#evaluate_predictions-97"><span class="linenos"> 97</span></a>        <span class="s2">"accuracy"</span><span class="p">:</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="evaluate_predictions-98"><a href="#evaluate_predictions-98"><span class="linenos"> 98</span></a>        <span class="s2">"f1"</span><span class="p">:</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">zero_division</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
-</span><span id="evaluate_predictions-99"><a href="#evaluate_predictions-99"><span class="linenos"> 99</span></a>        <span class="s2">"roc_auc"</span><span class="p">:</span> <span class="n">roc_auc</span><span class="p">,</span>
-</span><span id="evaluate_predictions-100"><a href="#evaluate_predictions-100"><span class="linenos">100</span></a>        <span class="s2">"brier_score"</span><span class="p">:</span> <span class="n">brier_score_loss</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">),</span>
-</span><span id="evaluate_predictions-101"><a href="#evaluate_predictions-101"><span class="linenos">101</span></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
-</span><span id="evaluate_predictions-102"><a href="#evaluate_predictions-102"><span class="linenos">102</span></a>        <span class="s2">"positive_rate"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
-</span><span id="evaluate_predictions-103"><a href="#evaluate_predictions-103"><span class="linenos">103</span></a>    <span class="p">}</span>
-</span></pre></div>
-
-
-            <div class="docstring"><p>Compute a standard set of classification metrics.</p>
-
-<p>Several metrics are reported together (rather than just accuracy)
-because occupancy is imbalanced (the "occupied" class dominates) --
-accuracy alone can look deceptively good for a model that just always
-predicts the majority class.</p>
-
-<p>Args:
-    y_true: Ground-truth binary labels (0/1).
-    y_prob: Predicted probability of the positive (occupied) class.
-    threshold: Probability threshold used to derive hard predictions
-        for accuracy/F1.</p>
-
-<p>Returns:
-    A dict with <code>accuracy</code>, <code>f1</code>, <code>roc_auc</code> (<code>NaN</code> if
-    <code>y_true</code> has only one class present), <code>brier_score</code>
-    (calibration -- lower is better), <code>n</code> (rows evaluated) and
-    <code>positive_rate</code> (base rate of the occupied class, for context).</p>
 </div>
 
 
@@ -362,29 +248,31 @@ predicts the majority class.</p>
 
     </div>
     <a class="headerlink" href="#evaluate_regression_predictions"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="evaluate_regression_predictions-106"><a href="#evaluate_regression_predictions-106"><span class="linenos">106</span></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_regression_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span id="evaluate_regression_predictions-107"><a href="#evaluate_regression_predictions-107"><span class="linenos">107</span></a><span class="w">    </span><span class="sd">"""Compute the standard MMA3001 Week 5.5 regression metrics.</span>
-</span><span id="evaluate_regression_predictions-108"><a href="#evaluate_regression_predictions-108"><span class="linenos">108</span></a>
-</span><span id="evaluate_regression_predictions-109"><a href="#evaluate_regression_predictions-109"><span class="linenos">109</span></a><span class="sd">    Args:</span>
-</span><span id="evaluate_regression_predictions-110"><a href="#evaluate_regression_predictions-110"><span class="linenos">110</span></a><span class="sd">        y_true: Ground-truth continuous target values.</span>
-</span><span id="evaluate_regression_predictions-111"><a href="#evaluate_regression_predictions-111"><span class="linenos">111</span></a><span class="sd">        y_pred: Predicted values.</span>
-</span><span id="evaluate_regression_predictions-112"><a href="#evaluate_regression_predictions-112"><span class="linenos">112</span></a>
-</span><span id="evaluate_regression_predictions-113"><a href="#evaluate_regression_predictions-113"><span class="linenos">113</span></a><span class="sd">    Returns:</span>
-</span><span id="evaluate_regression_predictions-114"><a href="#evaluate_regression_predictions-114"><span class="linenos">114</span></a><span class="sd">        A dict with ``mae`` (mean absolute error, in target units),</span>
-</span><span id="evaluate_regression_predictions-115"><a href="#evaluate_regression_predictions-115"><span class="linenos">115</span></a><span class="sd">        ``rmse`` (root mean squared error, in target units, more</span>
-</span><span id="evaluate_regression_predictions-116"><a href="#evaluate_regression_predictions-116"><span class="linenos">116</span></a><span class="sd">        sensitive to large errors than MAE), ``r2`` (fraction of target</span>
-</span><span id="evaluate_regression_predictions-117"><a href="#evaluate_regression_predictions-117"><span class="linenos">117</span></a><span class="sd">        variance explained relative to a mean-prediction baseline), and</span>
-</span><span id="evaluate_regression_predictions-118"><a href="#evaluate_regression_predictions-118"><span class="linenos">118</span></a><span class="sd">        ``n`` (rows evaluated).</span>
-</span><span id="evaluate_regression_predictions-119"><a href="#evaluate_regression_predictions-119"><span class="linenos">119</span></a><span class="sd">    """</span>
-</span><span id="evaluate_regression_predictions-120"><a href="#evaluate_regression_predictions-120"><span class="linenos">120</span></a>    <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="evaluate_regression_predictions-121"><a href="#evaluate_regression_predictions-121"><span class="linenos">121</span></a>    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span id="evaluate_regression_predictions-122"><a href="#evaluate_regression_predictions-122"><span class="linenos">122</span></a>
-</span><span id="evaluate_regression_predictions-123"><a href="#evaluate_regression_predictions-123"><span class="linenos">123</span></a>    <span class="k">return</span> <span class="p">{</span>
-</span><span id="evaluate_regression_predictions-124"><a href="#evaluate_regression_predictions-124"><span class="linenos">124</span></a>        <span class="s2">"mae"</span><span class="p">:</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="evaluate_regression_predictions-125"><a href="#evaluate_regression_predictions-125"><span class="linenos">125</span></a>        <span class="s2">"rmse"</span><span class="p">:</span> <span class="n">root_mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="evaluate_regression_predictions-126"><a href="#evaluate_regression_predictions-126"><span class="linenos">126</span></a>        <span class="s2">"r2"</span><span class="p">:</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
-</span><span id="evaluate_regression_predictions-127"><a href="#evaluate_regression_predictions-127"><span class="linenos">127</span></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
-</span><span id="evaluate_regression_predictions-128"><a href="#evaluate_regression_predictions-128"><span class="linenos">128</span></a>    <span class="p">}</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="evaluate_regression_predictions-63"><a href="#evaluate_regression_predictions-63"><span class="linenos">63</span></a><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_regression_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="evaluate_regression_predictions-64"><a href="#evaluate_regression_predictions-64"><span class="linenos">64</span></a><span class="w">    </span><span class="sd">"""Compute the standard MMA3001 Week 5.5 regression metrics.</span>
+</span><span id="evaluate_regression_predictions-65"><a href="#evaluate_regression_predictions-65"><span class="linenos">65</span></a>
+</span><span id="evaluate_regression_predictions-66"><a href="#evaluate_regression_predictions-66"><span class="linenos">66</span></a><span class="sd">    Args:</span>
+</span><span id="evaluate_regression_predictions-67"><a href="#evaluate_regression_predictions-67"><span class="linenos">67</span></a><span class="sd">        y_true: Ground-truth continuous target values.</span>
+</span><span id="evaluate_regression_predictions-68"><a href="#evaluate_regression_predictions-68"><span class="linenos">68</span></a><span class="sd">        y_pred: Predicted values.</span>
+</span><span id="evaluate_regression_predictions-69"><a href="#evaluate_regression_predictions-69"><span class="linenos">69</span></a>
+</span><span id="evaluate_regression_predictions-70"><a href="#evaluate_regression_predictions-70"><span class="linenos">70</span></a><span class="sd">    Returns:</span>
+</span><span id="evaluate_regression_predictions-71"><a href="#evaluate_regression_predictions-71"><span class="linenos">71</span></a><span class="sd">        A dict with ``mae`` (mean absolute error, in target units),</span>
+</span><span id="evaluate_regression_predictions-72"><a href="#evaluate_regression_predictions-72"><span class="linenos">72</span></a><span class="sd">        ``rmse`` (root mean squared error, in target units, more</span>
+</span><span id="evaluate_regression_predictions-73"><a href="#evaluate_regression_predictions-73"><span class="linenos">73</span></a><span class="sd">        sensitive to large errors than MAE), ``r2`` (fraction of target</span>
+</span><span id="evaluate_regression_predictions-74"><a href="#evaluate_regression_predictions-74"><span class="linenos">74</span></a><span class="sd">        variance explained relative to a mean-prediction baseline), and</span>
+</span><span id="evaluate_regression_predictions-75"><a href="#evaluate_regression_predictions-75"><span class="linenos">75</span></a><span class="sd">        ``n`` (rows evaluated).</span>
+</span><span id="evaluate_regression_predictions-76"><a href="#evaluate_regression_predictions-76"><span class="linenos">76</span></a><span class="sd">    """</span>
+</span><span id="evaluate_regression_predictions-77"><a href="#evaluate_regression_predictions-77"><span class="linenos">77</span></a>    <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span id="evaluate_regression_predictions-78"><a href="#evaluate_regression_predictions-78"><span class="linenos">78</span></a>    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span id="evaluate_regression_predictions-79"><a href="#evaluate_regression_predictions-79"><span class="linenos">79</span></a>
+</span><span id="evaluate_regression_predictions-80"><a href="#evaluate_regression_predictions-80"><span class="linenos">80</span></a>    <span class="c1"># Report all three: MAE is the typical error, RMSE weights the rare large</span>
+</span><span id="evaluate_regression_predictions-81"><a href="#evaluate_regression_predictions-81"><span class="linenos">81</span></a>    <span class="c1"># misses (CO2 spikes) more, and R2 compares against predicting the mean.</span>
+</span><span id="evaluate_regression_predictions-82"><a href="#evaluate_regression_predictions-82"><span class="linenos">82</span></a>    <span class="k">return</span> <span class="p">{</span>
+</span><span id="evaluate_regression_predictions-83"><a href="#evaluate_regression_predictions-83"><span class="linenos">83</span></a>        <span class="s2">"mae"</span><span class="p">:</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
+</span><span id="evaluate_regression_predictions-84"><a href="#evaluate_regression_predictions-84"><span class="linenos">84</span></a>        <span class="s2">"rmse"</span><span class="p">:</span> <span class="n">root_mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
+</span><span id="evaluate_regression_predictions-85"><a href="#evaluate_regression_predictions-85"><span class="linenos">85</span></a>        <span class="s2">"r2"</span><span class="p">:</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">),</span>
+</span><span id="evaluate_regression_predictions-86"><a href="#evaluate_regression_predictions-86"><span class="linenos">86</span></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_true</span><span class="p">)),</span>
+</span><span id="evaluate_regression_predictions-87"><a href="#evaluate_regression_predictions-87"><span class="linenos">87</span></a>    <span class="p">}</span>
 </span></pre></div>
 
 

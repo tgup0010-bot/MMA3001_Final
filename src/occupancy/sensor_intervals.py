@@ -34,6 +34,8 @@ def find_unbroken_intervals(series: pd.Series) -> pd.DataFrame:
         ``start``, ``end`` (index labels of the first and last bin) and
         ``n_bins``, in time order. Empty if ``series`` has no values.
     """
+    # A new run starts wherever present/missing flips; cumsum turns those
+    # flips into a run number shared by every bin in the same run.
     present = series.notna()
     run_id = (present != present.shift()).cumsum()
     runs = (
@@ -50,6 +52,13 @@ def usable_rows(intervals: pd.DataFrame, rolling_window: int = 4) -> int:
     A row needs ``rolling_window`` bins of history (which includes the
     current bin) plus the next bin as its target, so an interval of
     ``n`` bins yields ``n - rolling_window`` rows (none if shorter).
+
+    Args:
+        intervals: Output of :func:`find_unbroken_intervals`.
+        rolling_window: Bins of history each supervised row needs.
+
+    Returns:
+        Total supervised rows across all intervals.
     """
     return int((intervals["n_bins"] - rolling_window).clip(lower=0).sum())
 
@@ -76,7 +85,7 @@ def interval_audit(
         long enough to yield at least one row) and ``usable_rows``.
     """
     co2 = env_long[env_long["variable"] == "Carbon dioxide"]
-    min_bins = rolling_window + 1
+    min_bins = rolling_window + 1  # history window plus the target bin
     bin_hours = pd.Timedelta(bin_size) / pd.Timedelta("1h")
 
     rows = []
@@ -88,6 +97,8 @@ def interval_audit(
             {
                 "sensorid": sid,
                 "raw_rows": len(readings),
+                # A replaying sensor has thousands of rows but only one or
+                # two distinct timestamps -- the stale-packet signature.
                 "distinct_timestamps": readings["time"].nunique(),
                 "distinct_values": readings["value"].nunique(),
                 "first_reading": readings["time"].min(),

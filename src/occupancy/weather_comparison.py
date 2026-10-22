@@ -39,6 +39,8 @@ def daily_indoor_series(env_long: pd.DataFrame, sensorid: str, variable: str) ->
     """
     pivoted = pivot_variable(env_long, variable)
     sub = pivoted[pivoted["sensorid"] == sensorid]
+    # Daily means, because BoM publishes one observation per day; days are
+    # local (Melbourne) calendar days to line up with BoM's dates.
     daily = sub.set_index("time")["value"].resample("1D").mean()
     daily.index = daily.index.date
     return daily
@@ -66,6 +68,8 @@ def compare_to_bom(
         ``min_overlap_days``), ``n_days`` (overlapping days used), and
         ``date_range`` (``(first, last)`` overlapping dates, or ``None``).
     """
+    # Only days present in both series count: a correlation over mismatched
+    # dates would be meaningless.
     outdoor = bom_df.set_index("date")[outdoor_col]
     aligned = pd.concat(
         [indoor_daily.rename("indoor"), outdoor.rename("outdoor")], axis=1
@@ -74,6 +78,8 @@ def compare_to_bom(
     if len(aligned) < min_overlap_days:
         return {"correlation": float("nan"), "n_days": len(aligned), "date_range": None}
 
+    # A faulty sensor (stuck value, frozen clock, noise) gives r near zero, so
+    # a clearly positive r is evidence the sensor measures real conditions.
     corr = aligned["indoor"].corr(aligned["outdoor"])
     return {
         "correlation": corr,

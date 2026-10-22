@@ -96,11 +96,16 @@ def co2_series(env_long: pd.DataFrame, sensorid: str, bin_size: str) -> pd.Serie
 def _add_calendar_features(index: pd.DatetimeIndex) -> pd.DataFrame:
     """Cyclical time-of-day/day-of-week features for a DatetimeIndex.
 
-    Deliberately duplicated (rather than imported) from
-    occupancy.features._add_calendar_features: that function operates on a
-    DataFrame column, while here the time axis is the join key/index of
-    two merged series -- adapting it in place would risk the two call
-    sites drifting apart silently.
+    Sine/cosine pairs keep 23:45 next to 00:00 and Sunday next to Monday,
+    which a plain integer hour or day would place at opposite ends.
+
+    Args:
+        index: Tz-aware bin timestamps in local time (Australia/Melbourne),
+            so the hour follows the building's daylight-saving clock.
+
+    Returns:
+        A DataFrame indexed like ``index`` with ``hour_sin``, ``hour_cos``,
+        ``dow_sin``, ``dow_cos`` (all -1 to 1) and ``is_weekend`` (0 or 1).
     """
     hour_frac = index.hour + index.minute / 60.0
     import numpy as np

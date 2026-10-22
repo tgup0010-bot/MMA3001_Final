@@ -50,6 +50,8 @@ def trapezoidal_integral(times: pd.Series | np.ndarray, values: pd.Series | np.n
     if len(times) < 2:
         raise ValueError("Need at least 2 (time, value) points to integrate.")
 
+    # Each panel uses its own width (h_i), not an average step: averaging
+    # would add error unrelated to the data. Hours, so the result is ppm.h.
     gaps_hours = times.diff().dt.total_seconds().to_numpy()[1:] / 3600.0
     f = values.to_numpy()
     panel_areas = gaps_hours * (f[:-1] + f[1:]) / 2.0
@@ -94,6 +96,10 @@ def trapezoidal_integral_gap_aware(
     f = values.to_numpy()
     panel_areas = gaps_hours * (f[:-1] + f[1:]) / 2.0
 
+    # A panel wider than max_gap spans an outage: integrating it assumes CO2
+    # varied linearly through days of missing data. On sensor 0326 that one
+    # assumption inflated cumulative exposure about 4x (9.54M vs 2.31M ppm.h),
+    # so such panels are dropped and their duration reported, not hidden.
     included = gaps_hours <= max_gap_hours
     return {
         "total": float(panel_areas[included].sum()),
@@ -121,15 +127,19 @@ def simpsons_integral(values: pd.Series | np.ndarray, bin_hours: float) -> float
             intervals is not even.
     """
     f = np.asarray(values, dtype=float)
-    n = len(f) - 1
+    n = len(f) - 1  # number of intervals, not points
     if n < 2:
         raise ValueError("Need at least 3 points (2 intervals) for Simpson's rule.")
+    # Simpson's pairs intervals into parabolic panels; silently dropping a
+    # leftover interval would change the answer, so refuse instead.
     if n % 2 != 0:
         raise ValueError(
             f"Simpson's 1/3 rule needs an even number of intervals, got {n} "
             "(odd number of points required)."
         )
 
+    # Weights 1, 4, 2, 4, ..., 2, 4, 1: interior odd nodes are parabola
+    # midpoints (weight 4), interior even nodes are shared panel ends (weight 2).
     odd_sum = f[1:-1:2].sum()
     even_sum = f[2:-1:2].sum()
     return float((bin_hours / 3.0) * (f[0] + 4 * odd_sum + 2 * even_sum + f[-1]))
@@ -160,6 +170,8 @@ def richardson_order_check(
         how much the change itself shrank relative to a still-finer pair,
         if available).
     """
+    # The true integral of real sensor data is unknown, so only the change
+    # between resolutions can be measured -- evidence of convergence, not error.
     change = estimate_h_half - estimate_h
     pct_change = 100.0 * change / estimate_h_half if estimate_h_half else float("nan")
     return {

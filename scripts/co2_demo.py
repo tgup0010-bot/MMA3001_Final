@@ -26,6 +26,7 @@ from occupancy.co2_regression import (
     co2_series,
 )
 from occupancy.evaluation import chronological_split
+from occupancy.input_validation import extrapolation_warnings, training_ranges, validate_query
 from occupancy.processed_data import (
     env_readings_raw_or_processed,
     resampled_occupancy_raw_or_processed,
@@ -53,7 +54,7 @@ def load_and_train():
     pipeline = build_svr_pipeline()
     pipeline.fit(train[x_cols], train["target"])
     print(f"Trained on {len(train):,} rows (up to {cutoff}), {len(test):,} held-out test rows.\n")
-    return pipeline, x_cols, test
+    return pipeline, x_cols, test, training_ranges(train)
 
 
 def replay_real_examples(pipeline, x_cols, test: pd.DataFrame, n: int = 12) -> None:
@@ -96,7 +97,19 @@ def _build_query_row(x_cols: list[str], *, co2_now: float, co2_lag1: float,
     return pd.DataFrame([row])[x_cols]
 
 
-def interactive_loop(pipeline, x_cols: list[str]) -> None:
+def _ask_number(prompt: str, default: float | None = None) -> float:
+    """Prompt until the user types a number (or accepts ``default`` with blank)."""
+    while True:
+        raw = input(prompt).strip()
+        if not raw and default is not None:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            print(f"  '{raw}' is not a number, try again.")
+
+
+def interactive_loop(pipeline, x_cols: list[str], ranges: dict[str, tuple[float, float]]) -> None:
     print("=" * 76)
     print("PART 2 -- Try your own scenario")
     print("=" * 76)
@@ -107,39 +120,56 @@ def interactive_loop(pipeline, x_cols: list[str]) -> None:
         if not co2_raw:
             print("Bye!")
             return
-        co2_now = float(co2_raw)
+        try:
+            co2_now = float(co2_raw)
+        except ValueError:
+            print(f"  '{co2_raw}' is not a number, try again.\n")
+            continue
 
-        lag_raw = input("CO2 15 minutes ago, ppm (blank = same as now): ").strip()
-        co2_lag1 = float(lag_raw) if lag_raw else co2_now
-
-        roll_raw = input("Average CO2 over the last hour, ppm (blank = same as now): ").strip()
-        rolling_mean = float(roll_raw) if roll_raw else co2_now
-
-        occ_raw = input("How many of the 5 occupancy zones are occupied right now, 0-5: ").strip()
-        occupancy = float(occ_raw) if occ_raw else 0.0
-
-        hour = int(input("Hour of day right now, 0-23 (e.g. 14 for 2pm): ").strip())
+        co2_lag1 = _ask_number("CO2 15 minutes ago, ppm (blank = same as now): ", co2_now)
+        rolling_mean = _ask_number("Average CO2 over the last hour, ppm (blank = same as now): ", co2_now)
+        occupancy = _ask_number("How many of the 5 occupancy zones are occupied right now, 0-5: ", 0.0)
+        hour = _ask_number("Hour of day right now, 0-23 (e.g. 14 for 2pm): ")
         print("Days: " + ", ".join(f"{i + 1}={d}" for i, d in enumerate(DAYS)))
-        dow = int(input("Day of week, 1-7: ").strip()) - 1
+        dow = _ask_number("Day of week, 1-7: ") - 1
+
+        # Invalid inputs are refused rather than predicted from: the model
+        # would happily return a number for negative CO2 or hour 25.
+        problems = validate_query(
+            co2_now=co2_now, co2_lag1=co2_lag1, co2_rolling_1h=rolling_mean,
+            building_occupancy=occupancy, hour=hour, day_of_week=dow,
+        )
+        if problems:
+            print("\n  Input rejected, no prediction made:")
+            for problem in problems:
+                print(f"   - {problem}")
+            print()
+            continue
 
         query = _build_query_row(
             x_cols, co2_now=co2_now, co2_lag1=co2_lag1, rolling_mean=rolling_mean,
             occupancy=occupancy, hour=hour, dow=dow,
         )
         predicted = pipeline.predict(query)[0]
+        warnings = extrapolation_warnings(
+            {"co2_now": co2_now, "co2_lag1": co2_lag1, "co2_rolling_1h": rolling_mean}, ranges
+        )
         direction = "rising" if predicted > co2_now else ("falling" if predicted < co2_now else "flat")
 
         print(
             f"\n  --> Model predicts {predicted:.1f} ppm in 15 minutes "
-            f"(currently {co2_now:.1f} ppm, {direction}).\n"
+            f"(currently {co2_now:.1f} ppm, {direction})."
         )
+        for warning in warnings:
+            print(f"  WARNING: {warning}")
+        print()
 
 
 def main() -> None:
-    pipeline, x_cols, test = load_and_train()
+    pipeline, x_cols, test, ranges = load_and_train()
     replay_real_examples(pipeline, x_cols, test)
     try:
-        interactive_loop(pipeline, x_cols)
+        interactive_loop(pipeline, x_cols, ranges)
     except (KeyboardInterrupt, EOFError):
         print("\nBye!")
 
