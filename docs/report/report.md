@@ -8,71 +8,101 @@
 
 ## 1. Engineering Problem
 
-### 1.1 Background
+### 1.1 Engineering Context
 
-Indoor air quality in office buildings deteriorates primarily through the accumulation of carbon dioxide (CO₂). Human respiration releases CO₂ continuously at approximately 0.2–0.3 litres per minute per person. In an enclosed, well-mixed space, the indoor concentration evolves according to a first-order mass balance — the standard single-zone model used in ventilation engineering (Persily & de Jonge, 2017):
+Ventilation is a building-services task within mechanical engineering: fans and dampers in the heating, ventilation and air-conditioning (HVAC) system set the rate at which outdoor air dilutes the carbon dioxide (CO₂) that occupants exhale, at about 0.2–0.3 litres per minute per person. In a well-mixed room the concentration follows the single-zone mass balance used in ventilation engineering (Persily & de Jonge, 2017):
 
 $$\frac{dC}{dt} = \frac{G \cdot N}{V} - \lambda \left(C - C_{\text{out}}\right)$$
 
-where $C$ is indoor CO₂ concentration (ppm), $G$ is the per-person CO₂ generation rate, $N$ is the number of occupants, $V$ is the room volume, $\lambda$ is the ventilation rate (air changes per hour), and $C_{\text{out}}$ is the ambient outdoor concentration (approximately 420 ppm). When occupancy is high and ventilation is insufficient, $C$ rises. When the HVAC system increases $\lambda$, $C$ falls.
+where $C$ is indoor CO₂ (ppm), $G$ the per-person generation rate, $N$ the number of occupants, $V$ the room volume, $\lambda$ the ventilation rate (air changes per hour) and $C_{\text{out}}$ the outdoor concentration (about 420 ppm). CO₂ is therefore the standard control variable for demand-controlled ventilation (DCV), which sets outdoor airflow from measured CO₂ instead of a fixed design rate (Emmerich & Persily, 2001; ASHRAE, 2022a).
 
-CO₂ concentration is therefore a direct, measurable proxy for both occupancy load and ventilation adequacy. A commonly used guideline, derived from earlier ASHRAE ventilation guidance, treats sustained indoor CO₂ above about 1000 ppm (roughly 700 ppm above outdoor levels) as a sign of inadequate ventilation. Satish et al. (2012) measured reductions in decision-making performance at 1000 ppm and larger effects at 2500 ppm, although later studies have not all replicated the effect.
+### 1.2 The Problem Being Addressed
 
-### 1.2 The Problem Being Solved
+DCV reacts to the current reading: by the time CO₂ crosses its setpoint the air is already stale, and with a typical $\lambda$ of about 2 air changes per hour the room's time constant $1/\lambda$ is about 30 minutes, so extra ventilation takes tens of minutes to act. A short-term forecast lets the system act before the setpoint is crossed. The dataset brief lists both "evaluating whether the available measurements support decisions about comfort or energy use" and auditing "potentially unreliable observations"; this project does both. It is a supervised regression problem with three research questions:
 
-Most building management systems control ventilation reactively: when CO₂ exceeds a threshold, ventilation increases. By then occupants are already breathing degraded air, and fans tend to overshoot to full capacity, using more energy than a smooth, anticipatory response.
+- **RQ1.** Can CO₂ 15 minutes ahead be forecast from recent sensor history and time of day, and which of the four Week 5 regression methods does it best?
+- **RQ2.** Does building occupancy data improve that forecast?
+- **RQ3.** Does adding a second sensor's data help, and does a model trained in one room transfer to another?
 
-This project addresses the question: **can CO₂ concentration 15 minutes from now be predicted accurately from current sensor readings and building state?** A 15-minute forecast gives a building management system time to raise ventilation before a threshold is crossed. This is a **supervised regression problem**: a function is learned from current measurements and engineered time features to one predicted CO₂ value. The four Week 5 regression methods are compared, and the value of building occupancy data is tested explicitly.
+**Criterion for a useful forecast:** on a held-out later period, a model must beat the persistence forecast (next value equals current value), and its mean absolute error must be well below the 50 ppm margin used for an early-warning trigger (Section 2.5).
 
-### 1.3 Scope
+### 1.3 Why It Matters
 
-The main analysis uses environmental sensor `6012002000326`, which has the longest record of genuine readings but no documented room (Section 6), limiting how well occupancy can be linked to it. Section 4.2 extends the analysis to every sensor's usable intervals, adding sensor `6012002000869` to test whether pooling sensors helps and whether a model transfers between rooms.
+HVAC accounts for roughly half of the energy used in buildings (Pérez-Lombard et al., 2008), so supplying more outdoor air than needed wastes fan and conditioning energy, while supplying too little degrades air quality. A common guideline, derived from earlier ASHRAE guidance, treats sustained CO₂ above about 1000 ppm as a sign of inadequate ventilation (ASHRAE, 2022b), and Satish et al. (2012) measured lower decision-making performance at 1000 ppm, although later studies have not all replicated the effect.
+
+### 1.4 Intended Use
+
+The forecaster is an advisory input to a building management system (BMS) or a facilities engineer. Every 15 minutes it takes the last hour of one room's CO₂ readings, the zone occupancy and the time, and returns the predicted CO₂ for the next 15 minutes; the BMS decides whether to raise outdoor airflow, and its own reactive setpoint stays in place as the safeguard, so the forecast is not safety-critical. Section 4 shows the models track the trend closely but under-predict sharp peaks, so the forecast is suited to early, gradual ventilation increases, not to replacing a peak alarm. A model must be trained for each room (RQ3, Section 4.2).
+
+### 1.5 Scope and Its Justification
+
+| Scope decision | Justification |
+|---------------------------|-------------------------------------------------|
+| Main analysis on sensor `6012002000326`; `6012002000869` added for RQ3 | 0326 has the longest record of genuine readings; three of the five sensors contain none (Section 4.2) |
+| One forecast horizon, 15 minutes | Matches the 15-minute reporting interval and is about half the room time constant: long enough to act on, short enough to predict from history |
+| The four Week 5 regression methods; no ARIMA or recurrent networks | The unit's methods, compared on equal terms; the lag and rolling features already give them the autoregressive structure of the mass balance |
+| No ventilation-rate or outdoor CO₂ inputs | Not in the dataset, so $\lambda$ and $C_{\text{out}}$ cannot be modelled directly; the mass balance motivates the features instead |
+| One building; no closed-loop control simulation | The dataset covers one site, and simulating fan control needs an HVAC model that is not available; the project evaluates forecast quality only |
 
 ---
 
 ## 2. Inputs and Outputs
 
-### 2.1 Problem Formulation
+### 2.1 Top-Level Inputs
 
-The prediction task can be stated formally as: learn a function $f$ such that
+| Input file | Format | Content used | Sampling and period |
+|------------------|------------------|--------------------------|------------------|
+| Environmental sensor log (`5EnvSensor_…csv`, 337 MB) | CSV; a `jsondata` column holds a JSON array of variables, each with a Unix-epoch `time` and `value` | CO₂ (ppm), temperature (°C), relative humidity (%) for 5 sensors; `createdate` (server receive time) | Every 15 min when working; genuine readings Feb–Jun 2024 (0869) and Sep 2025–Apr 2026 (0326) |
+| Occupancy event log (`5occupancySensor_…csv`, 1.5 GB) | CSV; one row per change of state | `floorspaceid` (zone); `occupancystatus`: CurrentlyOccupied, RecentlyOccupied or NotOccupied; `collecteddate` | Irregular (event-driven); 5 zones, Nov 2023–Apr 2026 |
+| Sensor ID and Locations (`.xlsx`) | Lookup table | Room of each device | Sensor 0326 is not listed |
+| Bureau of Meteorology daily observations, Moorabbin Airport, station 086077 | Monthly CSV | 9 am temperature and humidity | Daily, 222 days overlapping sensor 0326 |
 
-$$\hat{C}_{t+1} = f\!\left(C_t,\; C_{t-1},\; \bar{C}_{t-1\text{h}},\; O_t,\; \tau_t\right)$$
+The raw files exceed GitHub's 100 MB limit, so compact processed copies of the parts used are committed in `data/processed/`; every script uses the raw files when present and the copies otherwise, with identical results (README).
 
-where $C_t$ is the current CO₂ reading, $C_{t-1}$ is the reading from 15 minutes ago, $\bar{C}_{t-1\text{h}}$ is the 1-hour rolling mean, $O_t$ is the number of occupied building zones at time $t$, and $\tau_t$ encodes the temporal context (time of day, day of week). The output $\hat{C}_{t+1}$ is the predicted CO₂ concentration one 15-minute bin (15 minutes) ahead.
+### 2.2 From Raw Data to Model Inputs
 
-This formulation uses CO₂ as an **autoregressive** predictor of itself. The physical justification comes from the mass-balance equation: solving it over one 15-minute step $\Delta t$ with occupancy and ventilation held constant gives $C_{t+1} = e^{-\lambda \Delta t}\,C_t + (1 - e^{-\lambda \Delta t})\,C_{ss}$, where $C_{ss} = C_{\text{out}} + GN/(\lambda V)$ is the steady-state level. The next value is a scaled copy of the current one plus a term that depends on occupancy and ventilation — so the current level, its recent trend and the time of day (a proxy for the occupancy and ventilation schedule) are the natural inputs. With a typical $\lambda$ of about 2 air changes per hour, the room's time constant $1/\lambda$ is about 30 minutes, which is why a 15-minute horizon is both actionable and predictable from recent history.
+**Time.** All timestamps are converted to UTC and then to Australia/Melbourne local time, so the time-of-day features follow the building's clock across daylight-saving changes (the raw offsets switch between +10 and +11 hours).
 
-### 2.2 Input Features
+**Binning.** Each sensor's readings are averaged into 15-minute bins; a bin with no reading is missing.
 
-| Feature | Units / Type | Domain | Description |
-|----------|-------|-----|--------------------------------|
-| `co2_now` | ppm, continuous | 400–5000 | CO₂ at the current 15-minute bin. The strongest single predictor of the next reading, because CO₂ dynamics are strongly autoregressive over short horizons. |
-| `co2_lag1` | ppm, continuous | 400–5000 | CO₂ from 15 minutes ago. Combined with `co2_now`, this gives the average rate of change over the last 15 minutes (a backward finite difference) — whether CO₂ is rising, falling, or stable at the moment of prediction. |
-| `co2_rolling_1h` | ppm, continuous | 400–5000 | Mean of the last four 15-minute bins, including the current one (the hour ending now). Captures the medium-term trend — whether CO₂ has been consistently rising through the morning, plateauing, or declining as ventilation increases. |
-| `building_occupancy` | integer, discrete | 0–5 | Number of the five monitored occupancy zones currently occupied. Included because, from the mass-balance equation, $N$ directly drives CO₂ generation. Whether this variable is actually useful depends on whether the sensor is co-located with a monitored zone — this is tested empirically in Section 4. |
-| `hour_sin`, `hour_cos` | float, continuous | −1 to +1 | Cyclic encoding of hour-of-day: $(\sin(2\pi h/24),\, \cos(2\pi h/24))$. A plain integer hour would represent hour 23 and hour 0 as 23 steps apart; this encoding preserves the fact that they are actually 1 hour apart on a 24-hour cycle. |
-| `dow_sin`, `dow_cos` | float, continuous | −1 to +1 | Cyclic encoding of day-of-week, for the same reason. Different weekdays carry different occupancy and ventilation patterns. |
-| `is_weekend` | binary | {0, 1} | 1 if Saturday or Sunday, computed from each row's timestamp. Included because weekend occupancy and ventilation are expected to differ, and a binary flag makes that easy for linear models to learn. For this sensor the expected difference does not appear: weekday and weekend CO₂ are the same (Section 4). |
+**Occupancy.** A zone is occupied in a bin if its most recent status within the previous 2 hours is `CurrentlyOccupied`; `RecentlyOccupied`, the sensor's post-departure cooldown state, counts as not occupied. A zone with no event in the previous 2 hours is unknown. `building_occupancy` is the number of the five zones occupied: unknown zones count as not occupied, and the value is missing only when all five are unknown. The log's `headcount` column is not used, so the feature counts occupied zones, not people.
 
-**Total:** 9 features (each cyclic pair contributes two).
+**Formulation.** The model learns $\hat{C}_{t+1} = f(C_t, C_{t-1}, \bar{C}_{t-1\text{h}}, O_t, \tau_t)$: next-bin CO₂ from the current and previous bins, the 1-hour mean, occupancy $O_t$ and time context $\tau_t$. Solving the mass balance over one step $\Delta t$ with occupancy and ventilation held constant gives $C_{t+1} = e^{-\lambda \Delta t} C_t + (1 - e^{-\lambda \Delta t}) C_{ss}$, where $C_{ss} = C_{\text{out}} + GN/(\lambda V)$: the next value is a scaled copy of the current one plus a term set by occupancy and ventilation, which is why these are the inputs.
 
-### 2.3 Handling Missing and Invalid Inputs
+| Feature | Units, type | Description |
+|---------------------|------------|------------------------------------------|
+| `co2_now` | ppm, continuous | CO₂ in the current bin; the strongest single predictor |
+| `co2_lag1` | ppm, continuous | CO₂ 15 minutes ago; with `co2_now`, a backward difference giving the current trend |
+| `co2_rolling_1h` | ppm, continuous | Mean of the last four bins including the current one; the medium-term trend |
+| `building_occupancy` | count, integer 0–5 | Zones occupied (definition above); tested in RQ2 because $N$ drives generation |
+| `hour_sin`, `hour_cos` | −1 to 1 | Hour of day as $(\sin(2\pi h/24), \cos(2\pi h/24))$, so 23:45 sits next to 00:00 |
+| `dow_sin`, `dow_cos` | −1 to 1 | Day of week, encoded the same way |
+| `is_weekend` | 0 or 1 | 1 on Saturday and Sunday |
 
-The dominant data loss is a 636-day gap in genuine readings (11 December 2023 to 7 September 2025); for about eight months of it the sensor re-sent one stale packet every 11 minutes (Section 6). Genuine readings run from 7 September 2025 to 22 April 2026. Any row with a missing input or target is **dropped**, never filled: imputing across a 636-day gap would invent hundreds of thousands of readings.
+### 2.3 Input Domains
 
-Of 84,576 candidate 15-minute timestamps in the raw log, 17,010 (20.1%) have all nine inputs and the target present and are retained for modelling. The remaining 67,566 rows (79.9%) are dropped.
+Two domains are distinguished. The **valid domain** is what the model accepts at all, checked by `occupancy.input_validation`: CO₂ inputs 350–5000 ppm (indoor air cannot hold less CO₂ than the outdoor air ventilating it, allowing for sensor noise; 5000 ppm is the 8-hour occupational exposure limit, ACGIH and OSHA), occupancy a whole number 0–5, hour 0–23, day 0–6. The **trained domain** is the range of values in the training data. Most training rows lie between 400 and 550 ppm (Section 4.1), so accuracy is established there; valid inputs outside the training range are predicted but flagged as extrapolation.
 
-![Data pipeline: raw candidate timestamps versus dropped rows versus rows retained for modelling](chart_data_pipeline.png){width=3.6in}
+### 2.4 Invalid, Missing and Unsupported Inputs
 
-In effect, this policy keeps only the *unbroken intervals* of the record: runs of consecutive 15-minute bins with no gap. A row needs four bins of history (the 1-hour rolling mean) plus the next bin as its target, so any unbroken interval of at least 75 minutes contributes training data, and an interval of $n$ bins yields $n - 4$ rows. For sensor `6012002000326` there are 649 such intervals covering 4,978 hours. Section 4.2 applies the same rule to every sensor.
+**Missing.** A row with any missing input or target is dropped, never filled. The dominant loss is a 636-day gap in genuine readings (11 December 2023 to 7 September 2025): imputing across it would invent hundreds of thousands of readings. Of 84,576 candidate 15-minute timestamps, 17,010 (20.1%) are complete and used. In effect only *unbroken intervals* are kept: runs of consecutive bins with no gap. A row needs four bins of history plus the next bin as target, so any interval of at least 75 minutes contributes, and an interval of $n$ bins yields $n - 4$ rows; sensor 0326 has 649 such intervals covering 4,978 hours. Section 4.2 counts 17,317 rows for the same sensor because those experiments do not use occupancy; the 307 extra rows are bins with no occupancy value.
 
-### 2.4 Output
+**Invalid.** Three checks apply to the raw data. A reading received more than a day after its own timestamp is a re-sent stale packet, not a measurement; three sensors consist entirely of these (Section 4.2). Failed reads (no value) and malformed JSON payloads are skipped when the log is loaded. For a forecast query, `validate_query` rejects values outside the valid domain with the reason, and the demonstration program refuses to predict from them.
 
-| Output | Units | Description |
-|------|----|------------------------------|
-| Predicted CO₂ | ppm, continuous | Forecast CO₂ concentration 15 minutes ahead of the current reading |
+**Unsupported.** Some inputs are valid but outside what the model was built for: CO₂ outside the trained range (flagged as extrapolation), a different room (a model trained on one room is worse than persistence on another, Section 4.2), and a different bin size or horizon (the model must be retrained). These cannot all be detected from one query, so they are stated here and in the README.
 
-The model only forecasts; thresholds and ventilation commands belong to the building management system. A practical deployment rule might set an early-warning trigger at 750 ppm — 50 ppm below 800 ppm, a common stricter indoor-air-quality target than the 1000 ppm guideline in Section 1.1. The 50 ppm margin is about six times the MAE and twice the RMSE (Section 4), and matters most at high CO₂, where the models under-predict (Section 4.1).
+### 2.5 Outputs
+
+| Output | Units | Meaning and intended use |
+|------------------------------|-------|--------------------------------------|
+| Forecast CO₂ for the next 15 minutes | ppm | The main output: an advisory input to the BMS. Typical error 8.35 ppm (MAE, SVR), larger above about 600 ppm, where the models under-predict (Section 4.1) |
+| Extrapolation warning | text | Flags a forecast made outside the trained domain |
+| Model metrics (JSON in `reports/`) | ppm, R² | Compare methods and select the model (Section 4) |
+| Test-set predictions (CSV in `reports/`) | ppm | Residual and diagnostic analysis (Section 4.1) |
+| Cumulative CO₂ exposure (JSON in `reports/`) | ppm·h | Occupant exposure over a period; verifies the integration methods (Section 5.4) |
+| Sensor audit results (JSON in `reports/`) | Pearson $r$ | Whether a sensor measures real conditions and which zone it serves (Sections 5.3, 6) |
+
+The model only forecasts; thresholds and ventilation commands belong to the BMS. A practical rule might set an early-warning trigger at 750 ppm, 50 ppm below 800 ppm, a common stricter target than the 1000 ppm guideline. The 50 ppm margin is about six times the MAE and twice the RMSE (Section 4). Inputs and outputs of each function (types, units and shapes) are documented in the docstrings and the generated HTML documentation.
 
 ---
 
@@ -155,11 +185,11 @@ All four track the everyday CO2 trend closely; they diverge at the sharp spikes 
 
 ![Residual (predicted minus actual) vs. predicted CO2 for each model](chart13_residuals.png){width=6.3in}
 
-Predicted-vs-actual makes the R² numbers concrete: all four point clouds hug y=x below 550 ppm, then fall well short of it as actual CO2 rises past 600 ppm. The residual plots show the same effect directionally: residuals sit near zero typically but turn increasingly negative as predicted CO2 rises, rather than scattering symmetrically — a model under-responding to its most extreme inputs, consistent with the training data being dominated by the 400-550 ppm range (Section 2.3).
+Predicted-vs-actual makes the R² numbers concrete: all four point clouds hug y=x below 550 ppm, then fall well short of it as actual CO2 rises past 600 ppm. The residual plots show the same effect directionally: residuals sit near zero typically but turn increasingly negative as predicted CO2 rises, rather than scattering symmetrically — a model under-responding to its most extreme inputs, consistent with the training data being dominated by the 400-550 ppm range (Section 2.4).
 
 ### 4.2 Using every usable interval from all sensors
 
-Rather than accepting or rejecting whole sensors, the unbroken-interval rule (Section 2.3) was applied to all five: any interval of at least 75 minutes is usable. Comparing each reading's timestamp with the server receive time (`createdate`) showed that a sensor which stops measuring keeps re-sending its last packet about every 11 minutes.
+Rather than accepting or rejecting whole sensors, the unbroken-interval rule (Section 2.4) was applied to all five: any interval of at least 75 minutes is usable. Comparing each reading's timestamp with the server receive time (`createdate`) showed that a sensor which stops measuring keeps re-sending its last packet about every 11 minutes.
 
 | Sensor (last 4 digits) | Raw rows | Distinct readings | Stale re-sent rows | Usable intervals | Hours | Usable rows |
 |---|---|---|---|---|---|---|
@@ -288,10 +318,17 @@ Claude (Claude Code) was used throughout this project for data exploration, Pyth
 - MMA3001 Project Datasets document, Monash University, 2026. Dataset 2: Monash Smart Infrastructure Occupancy and Environmental Data.
 - MMA3001 Notes, Week 5.1–5.6: Regression methods and evaluation. Monash University, 2026.
 - MMA3001 Notes, Week 6: Numerical Integration. Monash University, 2026.
-- ASHRAE Standard 62.1: Ventilation and Acceptable Indoor Air Quality. American Society of Heating, Refrigerating and Air-Conditioning Engineers, 2022.
-- ASHRAE Position Document on Indoor Carbon Dioxide. American Society of Heating, Refrigerating and Air-Conditioning Engineers, 2022.
+- ACGIH. Carbon dioxide: TLV-TWA 5000 ppm. American Conference of Governmental Industrial Hygienists; also OSHA Permissible Exposure Limit, 29 CFR 1910.1000 Table Z-1 (5000 ppm, 8-hour TWA).
+- ASHRAE (2022a). Standard 62.1: Ventilation and Acceptable Indoor Air Quality. American Society of Heating, Refrigerating and Air-Conditioning Engineers.
+- ASHRAE (2022b). Position Document on Indoor Carbon Dioxide. American Society of Heating, Refrigerating and Air-Conditioning Engineers.
+- Emmerich, S. J. & Persily, A. K. (2001). State-of-the-Art Review of CO₂ Demand Controlled Ventilation Technology and Application. NISTIR 6729, National Institute of Standards and Technology.
+- Pérez-Lombard, L., Ortiz, J. & Pout, C. (2008). A review on buildings energy consumption information. *Energy and Buildings*, 40(3), 394–398.
 - Persily, A. & de Jonge, L. (2017). Carbon dioxide generation rates for building occupants. *Indoor Air*, 27(5), 868–879.
 - Satish, U. et al. (2012). Is CO₂ an indoor pollutant? Direct effects of low-to-moderate CO₂ concentrations on human decision-making performance. *Environmental Health Perspectives*, 120(12), 1671–1677.
 - Bureau of Meteorology. Daily Weather Observations, Moorabbin Airport (station 086077). http://www.bom.gov.au/climate/dwo/
 - scikit-learn documentation: LinearRegression, DecisionTreeRegressor, SVR, MLPRegressor, StandardScaler, Pipeline. https://scikit-learn.org/
 
+
+## Appendix A: Data Pipeline
+
+![Data pipeline: raw candidate timestamps versus dropped rows versus rows retained for modelling (Section 2.4)](chart_data_pipeline.png){width=3.6in}

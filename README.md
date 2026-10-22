@@ -80,7 +80,7 @@ Every script uses the raw files in `data/raw/` when they are present and falls b
 ```
 ├── src/occupancy/       Python package: CO2 regression + integration models
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
-├── tests/               pytest unit tests (61, all passing)
+├── tests/               pytest unit tests (75, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
 ├── docs/api/            HTML API documentation (pdoc, one page per module)
 ├── reports/             JSON experiment results + pytest test report (HTML, JUnit XML, text)
@@ -103,7 +103,7 @@ No data download is needed: run every command below from the repository root and
 python scripts/co2_demo.py
 ```
 
-Trains SVR fresh, replays 12 real test-set predictions, then lets you type in your own scenario for a live prediction.
+Trains SVR fresh, replays 12 real test-set predictions, then lets you type in your own scenario for a live prediction. Invalid inputs (e.g. negative CO2, hour 25, occupancy above 5) are rejected with the reason, and valid inputs outside the training range are predicted with an extrapolation warning ([`occupancy.input_validation`](src/occupancy/input_validation.py)).
 
 ## Running Experiments
 
@@ -114,12 +114,12 @@ python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-
 python scripts/sensor_matching_analysis.py    # Sensor-matching (lagged correlation) analysis
 python scripts/weekday_weekend_comparison.py  # Weekday vs weekend CO2 for both usable sensors
 python scripts/weather_comparison_analysis.py # Sensor vs Bureau of Meteorology weather
-pytest                                         # Run all 61 tests
+pytest                                         # Run all 75 tests
 ```
 
 ## Tests and Documentation
 
-The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **61 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
+The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **75 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
 
 **HTML API documentation (pdoc):** browse it online at https://tgup0010-bot.github.io/MMA3001_Final/ (GitHub Pages), or open [`docs/api/index.html`](docs/api/index.html) locally.
 
@@ -129,7 +129,7 @@ To regenerate the test report and the API docs after changing the code:
 pytest -v --junitxml=reports/test_report.xml --html=reports/test_report.html --self-contained-html | tee reports/test_report.txt
 pdoc -o docs/api occupancy occupancy.co2_integration occupancy.co2_models occupancy.co2_regression \
     occupancy.data_loading occupancy.env_sensors occupancy.evaluation occupancy.external_weather \
-    occupancy.preprocessing occupancy.rooms occupancy.sensor_intervals occupancy.sensor_matching occupancy.sensors \
+    occupancy.input_validation occupancy.preprocessing occupancy.processed_data occupancy.rooms occupancy.sensor_intervals occupancy.sensor_matching occupancy.sensors \
     occupancy.weather_comparison
 ```
 
