@@ -81,7 +81,7 @@ The raw files exceed GitHub's 100 MB limit, so compact processed copies of the p
 
 ### 2.3 Input Domains
 
-Two domains are distinguished. The **valid domain** is what the model accepts at all, checked by `occupancy.input_validation`: CO₂ inputs 350–5000 ppm (indoor air cannot hold less CO₂ than the outdoor air ventilating it, allowing for sensor noise; 5000 ppm is the 8-hour occupational exposure limit, ACGIH and OSHA), occupancy a whole number 0–5, hour 0–23, day 0–6. The **trained domain** is the range of values in the training data. Most training rows lie between 400 and 550 ppm (Section 4.1), so accuracy is established there; valid inputs outside the training range are predicted but flagged as extrapolation.
+Two domains are distinguished. The **valid domain** is what the model accepts at all, checked by `occupancy.input_validation`: CO₂ inputs 350–5000 ppm (indoor air cannot hold less CO₂ than the outdoor air ventilating it, allowing for sensor noise; 5000 ppm is the 8-hour occupational exposure limit, ACGIH and OSHA), occupancy a whole number 0–5, hour 0–23, day 0–6. The **trained domain** is the range of values in the training data: current CO₂ from 400 to 1387 ppm, but 99.5% of the 13,608 training rows lie between 400 and 550 ppm, so accuracy is established mainly in that band (Section 4.1). Valid inputs outside the training range are predicted but flagged as extrapolation.
 
 ### 2.4 Invalid, Missing and Unsupported Inputs
 

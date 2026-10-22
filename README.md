@@ -80,7 +80,7 @@ Every script uses the raw files in `data/raw/` when they are present and falls b
 ```
 ├── src/occupancy/       Python package: CO2 regression + integration models
 ├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
-├── tests/               pytest unit tests (75, all passing)
+├── tests/               pytest unit tests (76, all passing)
 ├── docs/report/         Written report (.md source + .docx submission + charts)
 ├── docs/api/            HTML API documentation (pdoc, one page per module)
 ├── reports/             JSON experiment results + pytest test report (HTML, JUnit XML, text)
@@ -114,12 +114,12 @@ python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-
 python scripts/sensor_matching_analysis.py    # Sensor-matching (lagged correlation) analysis
 python scripts/weekday_weekend_comparison.py  # Weekday vs weekend CO2 for both usable sensors
 python scripts/weather_comparison_analysis.py # Sensor vs Bureau of Meteorology weather
-pytest                                         # Run all 75 tests
+pytest                                         # Run all 76 tests
 ```
 
 ## Tests and Documentation
 
-The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **75 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
+The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **76 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
 
 **HTML API documentation (pdoc):** browse it online at https://tgup0010-bot.github.io/MMA3001_Final/ (GitHub Pages), or open [`docs/api/index.html`](docs/api/index.html) locally.
 

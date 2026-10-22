@@ -115,3 +115,24 @@ def test_bom_dir_prefers_raw_files_when_present(tmp_path):
     assert bom_dir_raw_or_processed(raw_dir, processed_dir) == processed_dir
     (raw_dir / "IDCJDW3049.202501.csv").write_text("x")
     assert bom_dir_raw_or_processed(raw_dir, processed_dir) == raw_dir
+
+
+def test_committed_processed_data_is_present_and_complete():
+    """Guard: a fresh clone must contain the data every experiment script needs."""
+    from pathlib import Path
+
+    from occupancy.processed_data import (
+        BOM_PROCESSED_DIR,
+        ENV_PROCESSED_PATH,
+        OCCUPANCY_PROCESSED_PATH,
+        RECEIVE_TIMES_PROCESSED_PATH,
+        VARIABLES_KEPT,
+    )
+
+    root = Path(__file__).resolve().parents[1]
+    env = load_env_readings(root / ENV_PROCESSED_PATH)
+    assert {"6012002000326", "6012002000869"} <= set(env["sensorid"])
+    assert set(env["variable"]) == set(VARIABLES_KEPT)
+    assert load_resampled_occupancy(root / OCCUPANCY_PROCESSED_PATH)["floorspaceid"].nunique() == 5
+    assert len(load_receive_times(root / RECEIVE_TIMES_PROCESSED_PATH)) > 0
+    assert any((root / BOM_PROCESSED_DIR).glob("IDCJDW*.csv"))
