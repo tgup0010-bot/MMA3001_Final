@@ -19,7 +19,7 @@ Answers the questions the original four-model comparison left open:
    releases (``occupancy.data_quality``).
 
 Writes ``reports/optimisation_results.json`` and
-``docs/report/chart17_optimisation.png``.
+``doc/report/chart17_optimisation.png``.
 
 Usage:
     python scripts/optimisation_and_performance.py               # about 8 minutes
@@ -69,7 +69,7 @@ from occupancy.processed_data import env_readings_raw_or_processed, resampled_oc
 OCC_RAW_PATH = Path("data/raw/5occupancySensor_MayToDec2024_9MRows.csv")
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
 RESULTS_PATH = Path("reports/optimisation_results.json")
-CHART_PATH = Path("docs/report/chart17_optimisation.png")
+CHART_PATH = Path("doc/report/chart17_optimisation.png")
 
 SENSOR_ID = "6012002000326"
 BIN_SIZE = "15min"

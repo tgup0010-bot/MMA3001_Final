@@ -7,7 +7,7 @@ from a fresh clone without the raw files, then checks that each table reads
 back identical to what the raw files produce.
 
 Usage:
-    python scripts/build_processed_data.py
+    python tools/build_processed_data.py
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def main() -> None:
             shutil.copy2(f, BOM_PROCESSED_DIR / f.name)
         print(f"  copied {len(bom_files)} files to {BOM_PROCESSED_DIR}")
     else:
-        print(f"No BoM CSVs in {BOM_RAW_DIR}; run scripts/fetch_bom_weather.py first to include them.")
+        print(f"No BoM CSVs in {BOM_RAW_DIR}; run tools/fetch_bom_weather.py first to include them.")
 
     print("\nDone. Every table reads back identical to the raw-file version.")
 

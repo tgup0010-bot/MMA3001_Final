@@ -40,6 +40,12 @@
                     <a class="function" href="#build_svr_pipeline">build_svr_pipeline</a>
             </li>
             <li>
+                    <a class="variable" href="#SELECTED_SVR_PARAMS">SELECTED_SVR_PARAMS</a>
+            </li>
+            <li>
+                    <a class="function" href="#build_selected_pipeline">build_selected_pipeline</a>
+            </li>
+            <li>
                     <a class="function" href="#build_neural_network_regression_pipeline">build_neural_network_regression_pipeline</a>
             </li>
     </ul>
@@ -165,39 +171,58 @@ come from the model, not from inconsistent inputs.</p>
 </span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a><span class="sd">    """</span>
 </span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a>    <span class="c1"># Scaling is essential here: the RBF kernel uses Euclidean distance, so</span>
 </span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a>    <span class="c1"># unscaled CO2 (hundreds of ppm) would swamp the 0/1 weekend flag.</span>
-</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a>    <span class="c1"># epsilon=0.5 ppm: errors smaller than this cost nothing, roughly the</span>
-</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a>    <span class="c1"># sensor's noise. C=10 penalises errors outside the tube 10x harder</span>
-</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a>    <span class="c1"># than scikit-learn's default (C=1), i.e. less regularisation.</span>
-</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">SVR</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))])</span>
-</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a>
+</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a>    <span class="c1"># These are the original settings (report Section 4): errors within</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a>    <span class="c1"># epsilon=0.5 ppm cost nothing, which is below the sensor's 1 ppm</span>
+</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a>    <span class="c1"># resolution, so 94% of training rows become support vectors. Tuning</span>
+</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a>    <span class="c1"># (Section 6) selected SELECTED_SVR_PARAMS instead.</span>
+</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">SVR</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))])</span>
 </span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a>
-</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a><span class="k">def</span><span class="w"> </span><span class="nf">build_neural_network_regression_pipeline</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
-</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a><span class="w">    </span><span class="sd">"""Week 5.4: a small multi-layer-perceptron regressor.</span>
-</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a>
-</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a><span class="sd">    Args:</span>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="sd">        **kwargs: Passed to ``sklearn.neural_network.MLPRegressor``,</span>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="sd">            overriding the defaults below.</span>
+</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a>
+</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a><span class="c1">#: Settings chosen by 5-fold time-series cross-validation on the training</span>
+</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a><span class="c1">#: period only (``scripts/optimisation_and_performance.py``, report Section 6).</span>
+</span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a><span class="c1">#: epsilon=2 ppm ignores errors up to twice the sensor's resolution; C=100</span>
+</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="c1">#: and gamma=0.03 give a smoother, less regularised fit than the originals.</span>
+</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="n">SELECTED_SVR_PARAMS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"C"</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span> <span class="s2">"epsilon"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span> <span class="s2">"gamma"</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">}</span>
 </span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a>
-</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">    Returns:</span>
-</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">        An unfitted ``Pipeline`` of ``StandardScaler`` then the MLP.</span>
-</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="sd">    """</span>
-</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a>    <span class="c1"># The loss is non-convex, so the result depends on the random starting</span>
-</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>    <span class="c1"># weights: random_state fixes them for repeatability. early_stopping</span>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a>    <span class="c1"># holds out 10% of training rows and stops after 10 epochs without</span>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>    <span class="c1"># improvement -- the convergence criterion, and a guard against</span>
-</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a>    <span class="c1"># overfitting a small dataset. 32 -&gt; 16 units is ample for 9 inputs.</span>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>        <span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>        <span class="n">max_iter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>        <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a>        <span class="n">early_stopping</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>    <span class="p">)</span>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">(</span>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>        <span class="p">[(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">MLPRegressor</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))]</span>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>    <span class="p">)</span>
+</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a>
+</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="k">def</span><span class="w"> </span><span class="nf">build_selected_pipeline</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="w">    </span><span class="sd">"""The final design: SVR with :data:`SELECTED_SVR_PARAMS`.</span>
+</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a>
+</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a><span class="sd">    Returns:</span>
+</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="sd">        An unfitted ``Pipeline``; selected over the other three methods and</span>
+</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a><span class="sd">        the original SVR settings by cross-validated MAE, then confirmed on</span>
+</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="sd">        the held-out test period (report Section 6).</span>
+</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="sd">    """</span>
+</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>    <span class="k">return</span> <span class="n">build_svr_pipeline</span><span class="p">(</span><span class="o">**</span><span class="n">SELECTED_SVR_PARAMS</span><span class="p">)</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="k">def</span><span class="w"> </span><span class="nf">build_neural_network_regression_pipeline</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="w">    </span><span class="sd">"""Week 5.4: a small multi-layer-perceptron regressor.</span>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="sd">    Args:</span>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a><span class="sd">        **kwargs: Passed to ``sklearn.neural_network.MLPRegressor``,</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a><span class="sd">            overriding the defaults below.</span>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="sd">    Returns:</span>
+</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a><span class="sd">        An unfitted ``Pipeline`` of ``StandardScaler`` then the MLP.</span>
+</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a><span class="sd">    """</span>
+</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a>    <span class="c1"># The loss is non-convex, so the result depends on the random starting</span>
+</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a>    <span class="c1"># weights: random_state fixes them for repeatability. early_stopping</span>
+</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a>    <span class="c1"># holds out 10% of training rows and stops after 10 epochs without</span>
+</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>    <span class="c1"># improvement -- the convergence criterion, and a guard against</span>
+</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a>    <span class="c1"># overfitting a small dataset. 32 -&gt; 16 units is ample for 9 inputs.</span>
+</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a>        <span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>        <span class="n">max_iter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>        <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>        <span class="n">early_stopping</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>    <span class="p">)</span>
+</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">(</span>
+</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a>        <span class="p">[(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">MLPRegressor</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))]</span>
+</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>    <span class="p">)</span>
 </span></pre></div>
 
 
@@ -314,12 +339,13 @@ come from the model, not from inconsistent inputs.</p>
 </span><span id="build_svr_pipeline-81"><a href="#build_svr_pipeline-81"><span class="linenos">81</span></a><span class="sd">    """</span>
 </span><span id="build_svr_pipeline-82"><a href="#build_svr_pipeline-82"><span class="linenos">82</span></a>    <span class="c1"># Scaling is essential here: the RBF kernel uses Euclidean distance, so</span>
 </span><span id="build_svr_pipeline-83"><a href="#build_svr_pipeline-83"><span class="linenos">83</span></a>    <span class="c1"># unscaled CO2 (hundreds of ppm) would swamp the 0/1 weekend flag.</span>
-</span><span id="build_svr_pipeline-84"><a href="#build_svr_pipeline-84"><span class="linenos">84</span></a>    <span class="c1"># epsilon=0.5 ppm: errors smaller than this cost nothing, roughly the</span>
-</span><span id="build_svr_pipeline-85"><a href="#build_svr_pipeline-85"><span class="linenos">85</span></a>    <span class="c1"># sensor's noise. C=10 penalises errors outside the tube 10x harder</span>
-</span><span id="build_svr_pipeline-86"><a href="#build_svr_pipeline-86"><span class="linenos">86</span></a>    <span class="c1"># than scikit-learn's default (C=1), i.e. less regularisation.</span>
-</span><span id="build_svr_pipeline-87"><a href="#build_svr_pipeline-87"><span class="linenos">87</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-</span><span id="build_svr_pipeline-88"><a href="#build_svr_pipeline-88"><span class="linenos">88</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="build_svr_pipeline-89"><a href="#build_svr_pipeline-89"><span class="linenos">89</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">SVR</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))])</span>
+</span><span id="build_svr_pipeline-84"><a href="#build_svr_pipeline-84"><span class="linenos">84</span></a>    <span class="c1"># These are the original settings (report Section 4): errors within</span>
+</span><span id="build_svr_pipeline-85"><a href="#build_svr_pipeline-85"><span class="linenos">85</span></a>    <span class="c1"># epsilon=0.5 ppm cost nothing, which is below the sensor's 1 ppm</span>
+</span><span id="build_svr_pipeline-86"><a href="#build_svr_pipeline-86"><span class="linenos">86</span></a>    <span class="c1"># resolution, so 94% of training rows become support vectors. Tuning</span>
+</span><span id="build_svr_pipeline-87"><a href="#build_svr_pipeline-87"><span class="linenos">87</span></a>    <span class="c1"># (Section 6) selected SELECTED_SVR_PARAMS instead.</span>
+</span><span id="build_svr_pipeline-88"><a href="#build_svr_pipeline-88"><span class="linenos">88</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span id="build_svr_pipeline-89"><a href="#build_svr_pipeline-89"><span class="linenos">89</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="build_svr_pipeline-90"><a href="#build_svr_pipeline-90"><span class="linenos">90</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">SVR</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))])</span>
 </span></pre></div>
 
 
@@ -335,6 +361,51 @@ come from the model, not from inconsistent inputs.</p>
 
 
                 </section>
+                <section id="SELECTED_SVR_PARAMS">
+                    <div class="attr variable">
+            <span class="name">SELECTED_SVR_PARAMS</span>        =
+<span class="default_value">{&#39;C&#39;: 100.0, &#39;epsilon&#39;: 2.0, &#39;gamma&#39;: 0.03}</span>
+
+        
+    </div>
+    <a class="headerlink" href="#SELECTED_SVR_PARAMS"></a>
+    
+    
+
+                </section>
+                <section id="build_selected_pipeline">
+                            <input id="build_selected_pipeline-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">build_selected_pipeline</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="n">sklearn</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">Pipeline</span>:</span></span>
+
+                <label class="view-source-button" for="build_selected_pipeline-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#build_selected_pipeline"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="build_selected_pipeline-100"><a href="#build_selected_pipeline-100"><span class="linenos">100</span></a><span class="k">def</span><span class="w"> </span><span class="nf">build_selected_pipeline</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+</span><span id="build_selected_pipeline-101"><a href="#build_selected_pipeline-101"><span class="linenos">101</span></a><span class="w">    </span><span class="sd">"""The final design: SVR with :data:`SELECTED_SVR_PARAMS`.</span>
+</span><span id="build_selected_pipeline-102"><a href="#build_selected_pipeline-102"><span class="linenos">102</span></a>
+</span><span id="build_selected_pipeline-103"><a href="#build_selected_pipeline-103"><span class="linenos">103</span></a><span class="sd">    Returns:</span>
+</span><span id="build_selected_pipeline-104"><a href="#build_selected_pipeline-104"><span class="linenos">104</span></a><span class="sd">        An unfitted ``Pipeline``; selected over the other three methods and</span>
+</span><span id="build_selected_pipeline-105"><a href="#build_selected_pipeline-105"><span class="linenos">105</span></a><span class="sd">        the original SVR settings by cross-validated MAE, then confirmed on</span>
+</span><span id="build_selected_pipeline-106"><a href="#build_selected_pipeline-106"><span class="linenos">106</span></a><span class="sd">        the held-out test period (report Section 6).</span>
+</span><span id="build_selected_pipeline-107"><a href="#build_selected_pipeline-107"><span class="linenos">107</span></a><span class="sd">    """</span>
+</span><span id="build_selected_pipeline-108"><a href="#build_selected_pipeline-108"><span class="linenos">108</span></a>    <span class="k">return</span> <span class="n">build_svr_pipeline</span><span class="p">(</span><span class="o">**</span><span class="n">SELECTED_SVR_PARAMS</span><span class="p">)</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>The final design: SVR with <code><a href="#SELECTED_SVR_PARAMS">SELECTED_SVR_PARAMS</a></code>.</p>
+
+<p>Returns:
+    An unfitted <code>Pipeline</code>; selected over the other three methods and
+    the original SVR settings by cross-validated MAE, then confirmed on
+    the held-out test period (report Section 6).</p>
+</div>
+
+
+                </section>
                 <section id="build_neural_network_regression_pipeline">
                             <input id="build_neural_network_regression_pipeline-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -346,31 +417,31 @@ come from the model, not from inconsistent inputs.</p>
 
     </div>
     <a class="headerlink" href="#build_neural_network_regression_pipeline"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="build_neural_network_regression_pipeline-92"><a href="#build_neural_network_regression_pipeline-92"><span class="linenos"> 92</span></a><span class="k">def</span><span class="w"> </span><span class="nf">build_neural_network_regression_pipeline</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
-</span><span id="build_neural_network_regression_pipeline-93"><a href="#build_neural_network_regression_pipeline-93"><span class="linenos"> 93</span></a><span class="w">    </span><span class="sd">"""Week 5.4: a small multi-layer-perceptron regressor.</span>
-</span><span id="build_neural_network_regression_pipeline-94"><a href="#build_neural_network_regression_pipeline-94"><span class="linenos"> 94</span></a>
-</span><span id="build_neural_network_regression_pipeline-95"><a href="#build_neural_network_regression_pipeline-95"><span class="linenos"> 95</span></a><span class="sd">    Args:</span>
-</span><span id="build_neural_network_regression_pipeline-96"><a href="#build_neural_network_regression_pipeline-96"><span class="linenos"> 96</span></a><span class="sd">        **kwargs: Passed to ``sklearn.neural_network.MLPRegressor``,</span>
-</span><span id="build_neural_network_regression_pipeline-97"><a href="#build_neural_network_regression_pipeline-97"><span class="linenos"> 97</span></a><span class="sd">            overriding the defaults below.</span>
-</span><span id="build_neural_network_regression_pipeline-98"><a href="#build_neural_network_regression_pipeline-98"><span class="linenos"> 98</span></a>
-</span><span id="build_neural_network_regression_pipeline-99"><a href="#build_neural_network_regression_pipeline-99"><span class="linenos"> 99</span></a><span class="sd">    Returns:</span>
-</span><span id="build_neural_network_regression_pipeline-100"><a href="#build_neural_network_regression_pipeline-100"><span class="linenos">100</span></a><span class="sd">        An unfitted ``Pipeline`` of ``StandardScaler`` then the MLP.</span>
-</span><span id="build_neural_network_regression_pipeline-101"><a href="#build_neural_network_regression_pipeline-101"><span class="linenos">101</span></a><span class="sd">    """</span>
-</span><span id="build_neural_network_regression_pipeline-102"><a href="#build_neural_network_regression_pipeline-102"><span class="linenos">102</span></a>    <span class="c1"># The loss is non-convex, so the result depends on the random starting</span>
-</span><span id="build_neural_network_regression_pipeline-103"><a href="#build_neural_network_regression_pipeline-103"><span class="linenos">103</span></a>    <span class="c1"># weights: random_state fixes them for repeatability. early_stopping</span>
-</span><span id="build_neural_network_regression_pipeline-104"><a href="#build_neural_network_regression_pipeline-104"><span class="linenos">104</span></a>    <span class="c1"># holds out 10% of training rows and stops after 10 epochs without</span>
-</span><span id="build_neural_network_regression_pipeline-105"><a href="#build_neural_network_regression_pipeline-105"><span class="linenos">105</span></a>    <span class="c1"># improvement -- the convergence criterion, and a guard against</span>
-</span><span id="build_neural_network_regression_pipeline-106"><a href="#build_neural_network_regression_pipeline-106"><span class="linenos">106</span></a>    <span class="c1"># overfitting a small dataset. 32 -&gt; 16 units is ample for 9 inputs.</span>
-</span><span id="build_neural_network_regression_pipeline-107"><a href="#build_neural_network_regression_pipeline-107"><span class="linenos">107</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-</span><span id="build_neural_network_regression_pipeline-108"><a href="#build_neural_network_regression_pipeline-108"><span class="linenos">108</span></a>        <span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
-</span><span id="build_neural_network_regression_pipeline-109"><a href="#build_neural_network_regression_pipeline-109"><span class="linenos">109</span></a>        <span class="n">max_iter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-</span><span id="build_neural_network_regression_pipeline-110"><a href="#build_neural_network_regression_pipeline-110"><span class="linenos">110</span></a>        <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-</span><span id="build_neural_network_regression_pipeline-111"><a href="#build_neural_network_regression_pipeline-111"><span class="linenos">111</span></a>        <span class="n">early_stopping</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="build_neural_network_regression_pipeline-112"><a href="#build_neural_network_regression_pipeline-112"><span class="linenos">112</span></a>    <span class="p">)</span>
-</span><span id="build_neural_network_regression_pipeline-113"><a href="#build_neural_network_regression_pipeline-113"><span class="linenos">113</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span id="build_neural_network_regression_pipeline-114"><a href="#build_neural_network_regression_pipeline-114"><span class="linenos">114</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">(</span>
-</span><span id="build_neural_network_regression_pipeline-115"><a href="#build_neural_network_regression_pipeline-115"><span class="linenos">115</span></a>        <span class="p">[(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">MLPRegressor</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))]</span>
-</span><span id="build_neural_network_regression_pipeline-116"><a href="#build_neural_network_regression_pipeline-116"><span class="linenos">116</span></a>    <span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="build_neural_network_regression_pipeline-111"><a href="#build_neural_network_regression_pipeline-111"><span class="linenos">111</span></a><span class="k">def</span><span class="w"> </span><span class="nf">build_neural_network_regression_pipeline</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Pipeline</span><span class="p">:</span>
+</span><span id="build_neural_network_regression_pipeline-112"><a href="#build_neural_network_regression_pipeline-112"><span class="linenos">112</span></a><span class="w">    </span><span class="sd">"""Week 5.4: a small multi-layer-perceptron regressor.</span>
+</span><span id="build_neural_network_regression_pipeline-113"><a href="#build_neural_network_regression_pipeline-113"><span class="linenos">113</span></a>
+</span><span id="build_neural_network_regression_pipeline-114"><a href="#build_neural_network_regression_pipeline-114"><span class="linenos">114</span></a><span class="sd">    Args:</span>
+</span><span id="build_neural_network_regression_pipeline-115"><a href="#build_neural_network_regression_pipeline-115"><span class="linenos">115</span></a><span class="sd">        **kwargs: Passed to ``sklearn.neural_network.MLPRegressor``,</span>
+</span><span id="build_neural_network_regression_pipeline-116"><a href="#build_neural_network_regression_pipeline-116"><span class="linenos">116</span></a><span class="sd">            overriding the defaults below.</span>
+</span><span id="build_neural_network_regression_pipeline-117"><a href="#build_neural_network_regression_pipeline-117"><span class="linenos">117</span></a>
+</span><span id="build_neural_network_regression_pipeline-118"><a href="#build_neural_network_regression_pipeline-118"><span class="linenos">118</span></a><span class="sd">    Returns:</span>
+</span><span id="build_neural_network_regression_pipeline-119"><a href="#build_neural_network_regression_pipeline-119"><span class="linenos">119</span></a><span class="sd">        An unfitted ``Pipeline`` of ``StandardScaler`` then the MLP.</span>
+</span><span id="build_neural_network_regression_pipeline-120"><a href="#build_neural_network_regression_pipeline-120"><span class="linenos">120</span></a><span class="sd">    """</span>
+</span><span id="build_neural_network_regression_pipeline-121"><a href="#build_neural_network_regression_pipeline-121"><span class="linenos">121</span></a>    <span class="c1"># The loss is non-convex, so the result depends on the random starting</span>
+</span><span id="build_neural_network_regression_pipeline-122"><a href="#build_neural_network_regression_pipeline-122"><span class="linenos">122</span></a>    <span class="c1"># weights: random_state fixes them for repeatability. early_stopping</span>
+</span><span id="build_neural_network_regression_pipeline-123"><a href="#build_neural_network_regression_pipeline-123"><span class="linenos">123</span></a>    <span class="c1"># holds out 10% of training rows and stops after 10 epochs without</span>
+</span><span id="build_neural_network_regression_pipeline-124"><a href="#build_neural_network_regression_pipeline-124"><span class="linenos">124</span></a>    <span class="c1"># improvement -- the convergence criterion, and a guard against</span>
+</span><span id="build_neural_network_regression_pipeline-125"><a href="#build_neural_network_regression_pipeline-125"><span class="linenos">125</span></a>    <span class="c1"># overfitting a small dataset. 32 -&gt; 16 units is ample for 9 inputs.</span>
+</span><span id="build_neural_network_regression_pipeline-126"><a href="#build_neural_network_regression_pipeline-126"><span class="linenos">126</span></a>    <span class="n">defaults</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+</span><span id="build_neural_network_regression_pipeline-127"><a href="#build_neural_network_regression_pipeline-127"><span class="linenos">127</span></a>        <span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+</span><span id="build_neural_network_regression_pipeline-128"><a href="#build_neural_network_regression_pipeline-128"><span class="linenos">128</span></a>        <span class="n">max_iter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+</span><span id="build_neural_network_regression_pipeline-129"><a href="#build_neural_network_regression_pipeline-129"><span class="linenos">129</span></a>        <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+</span><span id="build_neural_network_regression_pipeline-130"><a href="#build_neural_network_regression_pipeline-130"><span class="linenos">130</span></a>        <span class="n">early_stopping</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="build_neural_network_regression_pipeline-131"><a href="#build_neural_network_regression_pipeline-131"><span class="linenos">131</span></a>    <span class="p">)</span>
+</span><span id="build_neural_network_regression_pipeline-132"><a href="#build_neural_network_regression_pipeline-132"><span class="linenos">132</span></a>    <span class="n">defaults</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="build_neural_network_regression_pipeline-133"><a href="#build_neural_network_regression_pipeline-133"><span class="linenos">133</span></a>    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">(</span>
+</span><span id="build_neural_network_regression_pipeline-134"><a href="#build_neural_network_regression_pipeline-134"><span class="linenos">134</span></a>        <span class="p">[(</span><span class="s2">"scale"</span><span class="p">,</span> <span class="n">StandardScaler</span><span class="p">()),</span> <span class="p">(</span><span class="s2">"regress"</span><span class="p">,</span> <span class="n">MLPRegressor</span><span class="p">(</span><span class="o">**</span><span class="n">defaults</span><span class="p">))]</span>
+</span><span id="build_neural_network_regression_pipeline-135"><a href="#build_neural_network_regression_pipeline-135"><span class="linenos">135</span></a>    <span class="p">)</span>
 </span></pre></div>
 
 

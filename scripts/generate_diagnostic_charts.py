@@ -60,7 +60,7 @@ from occupancy.processed_data import (
 
 OCC_RAW_PATH = Path("data/raw/5occupancySensor_MayToDec2024_9MRows.csv")
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
-OUT_DIR = Path("docs/report")
+OUT_DIR = Path("doc/report")
 PRED_CSV_PATH = Path("reports/co2_test_predictions.csv")
 SENSOR_ID = "6012002000326"
 BIN_SIZE = "15min"

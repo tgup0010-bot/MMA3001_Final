@@ -8,7 +8,7 @@ range is limited to a rolling ~15 months) -- this script checks every
 sensor and reports which ones qualify, rather than assuming.
 
 Usage:
-    python scripts/fetch_bom_weather.py          # once, to get the data
+    python tools/fetch_bom_weather.py          # once, to get the data
     python scripts/weather_comparison_analysis.py
 """
 

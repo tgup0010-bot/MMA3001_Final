@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 RESULTS_PATH = Path("reports/sensor_matching_results.json")
-OUT_PATH = Path("docs/report/chart10_zone_matching.png")
+OUT_PATH = Path("doc/report/chart10_zone_matching.png")
 VARIABLES = ("Carbon dioxide", "Temperature")
 COLOR_LIMIT = 0.3
 

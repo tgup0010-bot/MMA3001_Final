@@ -12,7 +12,7 @@ experiment script, however, only needs three much smaller derived tables:
 - each CO2 reading's server receive time (``createdate``), used to detect
   re-transmitted stale packets.
 
-``scripts/build_processed_data.py`` writes these tables once from the raw
+``tools/build_processed_data.py`` writes these tables once from the raw
 files. The ``*_or_processed`` loaders below then use the raw files when
 they are present and fall back to the committed tables otherwise, so both
 paths feed identical data into the analysis.

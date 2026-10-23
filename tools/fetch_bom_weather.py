@@ -11,11 +11,11 @@ Observations" pages, however, are freely fetchable, but only for a rolling
 window of roughly the last 15 months; anything older sits behind BoM's
 paid/registered-access tier and is not fetched here. This means this
 script can only ever cover recent months, not the full multi-year span of
-the occupancy/environmental sensor data -- see docs/report/report.md for
+the occupancy/environmental sensor data -- see doc/report/report.md for
 which sensor this actually gives usable overlap with.
 
 Usage:
-    python scripts/fetch_bom_weather.py
+    python tools/fetch_bom_weather.py
 """
 
 from __future__ import annotations

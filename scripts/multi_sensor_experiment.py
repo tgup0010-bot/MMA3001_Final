@@ -24,8 +24,8 @@ across experiments. A naive persistence forecast (next CO2 = current CO2)
 is reported alongside the four Week 5 models as a reference floor.
 
 Writes ``reports/multi_sensor_results.json`` and two charts
-(``docs/report/chart15_sensor_intervals.png``,
-``docs/report/chart16_multi_sensor_results.png``).
+(``doc/report/chart15_sensor_intervals.png``,
+``doc/report/chart16_multi_sensor_results.png``).
 
 Usage:
     python scripts/multi_sensor_experiment.py
@@ -60,7 +60,7 @@ from occupancy.sensor_intervals import find_unbroken_intervals, interval_audit
 
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
 RESULTS_PATH = Path("reports/multi_sensor_results.json")
-OUT_DIR = Path("docs/report")
+OUT_DIR = Path("doc/report")
 
 MAIN_SENSOR = "6012002000326"
 SECOND_SENSOR = "6012002000869"

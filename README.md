@@ -1,161 +1,124 @@
-# MMA3001 Project — Indoor CO2 Prediction
+# Indoor CO₂ Forecasting for Demand-Controlled Ventilation
 
-[![CI](https://github.com/tgup0010-bot/MMA3001_FINAL/actions/workflows/ci.yml/badge.svg)](https://github.com/tgup0010-bot/MMA3001_FINAL/actions/workflows/ci.yml)
+[![CI](https://github.com/tgup0010-bot/MMA3001_Final/actions/workflows/ci.yml/badge.svg)](https://github.com/tgup0010-bot/MMA3001_Final/actions/workflows/ci.yml)
 
-Individual project for MMA3001 (Numerical Methods and Machine Learning), Monash University, 2026 S2.
+Individual project for MMA3001 Numerical Methods and Machine Learning, Monash University, 2026 S2. Author: Tanmay Gupta.
 
-Author: Tanmay Gupta
+**Purpose.** Ventilation systems usually raise outdoor airflow only after indoor CO₂ has crossed a setpoint. This project forecasts CO₂ **15 minutes ahead** from the last hour of sensor readings, zone occupancy and time of day, so a building management system could act earlier. It compares the four Week 5 regression methods against a persistence benchmark, tunes them by time-series cross-validation, measures their cost, and uses the Week 6 trapezoidal and Simpson's rules for cumulative exposure. Data: MMA3001 Dataset 2, Monash Smart Infrastructure occupancy and environmental sensors.
 
-## Engineering Problem
+The full report is [`doc/report/report.md`](doc/report/report.md) (Word version: [`MMA3001_Project_Report.docx`](doc/report/MMA3001_Project_Report.docx)).
 
-Indoor CO2 rises when rooms are occupied and ventilation is insufficient. Above 800–1000 ppm, occupants experience reduced alertness. Most building systems react *after* CO2 is already too high.
-
-This project predicts CO2 concentration **15 minutes ahead** from recent sensor history, so a building management system can pre-emptively increase ventilation. It also runs a sensor-matching analysis to test whether occupancy data is useful — and finds no evidence that it is, for this sensor.
-
-**Status: complete.** All four Week 5 regression methods are implemented and compared. A Week 6 numerical integration analysis is included. The full written report is at [`docs/report/report.md`](docs/report/report.md) and [`docs/report/MMA3001_Project_Report.docx`](docs/report/MMA3001_Project_Report.docx).
-
-## Results
-
-**Best model: SVR** — MAE 8.35 ppm, R² 0.342 on the held-out test set (chronological split, cutoff 11 March 2026).
-
-| Model | MAE (ppm) | RMSE (ppm) | R² |
-|---|---|---|---|
-| Linear Regression | 9.012 | 25.579 | 0.3581 |
-| Decision Tree Regression | 9.353 | 28.708 | 0.1914 |
-| **SVR** | **8.350** | 25.894 | 0.3422 |
-| Neural Network Regression | 9.350 | 26.015 | 0.3360 |
-
-**Occupancy does not help.** Adding building occupancy as a feature makes no meaningful difference for any model (and actively hurts Decision Tree). This is explained by the sensor-matching analysis below.
-
-## Sensor-Matching Analysis
-
-Sensor `6012002000326` has no documented room, so before trusting occupancy as a feature a data-driven check looked for a link between each of the 5 occupancy zones and each sensor ([`occupancy.sensor_matching`](src/occupancy/sensor_matching.py), [`scripts/sensor_matching_analysis.py`](scripts/sensor_matching_analysis.py)). Method: resample to 15-minute bins, correlate each zone's occupancy with the **change** in the sensor's reading (not its level, which follows the same daily cycle in every room), search lags up to ±1 hour, and keep the strongest |r|.
-
-| Variable | Sensor 0326 vs. the 4 zones with overlapping data |
-|---|---|
-| CO2 | r = −0.03 to +0.01 (no sensor exceeds \|r\| = 0.06) |
-| Temperature | r = +0.04 to +0.27, but temperature rises 45–60 min *before* occupancy → building-wide HVAC warm-up |
-| Humidity | r = −0.15 to +0.02 |
-
-**No evidence links sensor 0326 to any monitored zone,** which explains why occupancy adds nothing to the CO2 model. Its daily pattern agrees ([`scripts/weekday_weekend_comparison.py`](scripts/weekday_weekend_comparison.py)): sensor 0869 (room G.38) peaks at 13:00 on weekdays and is 55 ppm lower at weekends during working hours, like an occupied room, while sensor 0326 peaks at 07:00 and shows no weekday/weekend difference (436 vs 436 ppm) — it follows the ventilation schedule, not people. Results: [`reports/sensor_matching_results.json`](reports/sensor_matching_results.json); chart: `python scripts/plot_sensor_matching.py`.
-
-## Using Every Sensor's Usable Intervals
-
-Following teaching-team feedback, each sensor's record was cut into **unbroken 15-minute intervals**, and every interval of at least 75 minutes (1 h history + 15 min target) was used, from any sensor ([`scripts/multi_sensor_experiment.py`](scripts/multi_sensor_experiment.py), report Section 4.2).
-
-| Sensor | Distinct readings | Usable intervals | Usable rows |
-|---|---|---|---|
-| 0326 (main) | 29,039 | 649 | 17,317 |
-| 0869 (room G.38) | 13,800 | 458 | 7,781 |
-| 0241, 0227, 0777 | 1–2 each | 0 | 0 |
-
-- **Three sensors contain no real readings.** They re-send one stale packet (same timestamp, same value) about every 11 minutes, so no interval can be formed.
-- **Pooling 0326 + 0869 (+56% training data):** SVR MAE 8.30 → 8.14 ppm, but no model's change is statistically significant (block-bootstrap 95% CIs all span zero).
-- **Models do not transfer between rooms:** trained on 0326 and tested on 0869, every model is worse than a naive "CO2 stays the same" forecast; trained on 0869's own data, SVR reaches MAE 6.99 ppm.
-
-## Data
-
-Source: MMA3001 Dataset 2 (Monash Smart Infrastructure Occupancy and Environmental Data).
-
-**Main analysis uses sensor `6012002000326`;** sensor `6012002000869` is added in the multi-sensor experiments above:
-- 3 sensors (`0227`, `0777`, `0241`) only ever re-send one stale packet — no genuine readings
-- Sensor 0869 has ~3.5 months of genuine readings (Feb–Jun 2024)
-- Sensor 0326 has genuine readings from Sep 2025 to Apr 2026, validated against Bureau of Meteorology records: r = +0.84 (temperature), r = +0.65 (humidity) over 222 days
-
-**17,010 rows used** from 84,576 candidates — 80% dropped due to a 636-day gap in genuine readings and missing lag/rolling features.
-
-**Everything needed to run the project is in this repository.** The two raw course files (1.5 GB and 337 MB) exceed GitHub's 100 MB file limit, so compact processed copies of the parts the analysis uses are committed in [`data/processed/`](data/processed/):
-
-| File | Contents |
-|---|---|
-| `env_readings.csv.gz` | Every CO2, temperature and humidity reading from all 5 sensors |
-| `occupancy_15min.csv.gz` | Occupancy log resampled to the 15-minute per-zone grid |
-| `co2_receive_times.csv.gz` | Each CO2 reading's server receive time (stale-packet detection) |
-| `bom/` | Bureau of Meteorology daily observations, Moorabbin Airport |
-
-Every script uses the raw files in `data/raw/` when they are present and falls back to these copies otherwise; both paths give identical results (checked by [`tests/test_processed_data.py`](tests/test_processed_data.py) and by [`scripts/build_processed_data.py`](scripts/build_processed_data.py), which regenerates the copies from the raw files). See [`data/raw/README.md`](data/raw/README.md) for the raw files.
-
-## Repository Structure
-
-```
-├── src/occupancy/       Python package: CO2 regression + integration models
-├── scripts/             Experiment scripts (prediction, integration, demo, analysis)
-├── tests/               pytest unit tests (76, all passing)
-├── docs/report/         Written report (.md source + .docx submission + charts)
-├── docs/api/            HTML API documentation (pdoc, one page per module)
-├── reports/             JSON experiment results + pytest test report (HTML, JUnit XML, text)
-└── data/                Processed data (committed) + raw data (gitignored, optional)
-```
-
-## Setup
+## Quick start
 
 ```bash
 git clone https://github.com/tgup0010-bot/MMA3001_Final.git
 cd MMA3001_Final
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+
+pytest                        # 90 tests, about 3 seconds
+python scripts/co2_demo.py    # train the selected model and try your own inputs
 ```
 
-No data download is needed: run every command below from the repository root and the scripts read the committed data in `data/processed/`.
+No data download is needed: run every command from the repository root and the scripts read the committed data in [`data/processed/`](data/processed/).
 
-## Live Demo
+## Environment and dependencies
 
-```bash
-python scripts/co2_demo.py
+- Python 3.10 or later (CI tests 3.10 and 3.12 on every push).
+- Runtime: pandas, NumPy, scikit-learn, Matplotlib, openpyxl. Development: pytest, pytest-html, pdoc, Jupyter. All are declared in [`pyproject.toml`](pyproject.toml) and installed by `pip install -e ".[dev]"`.
+- Optional: pandoc, only to rebuild the Word report.
+
+## Repository structure
+
+```
+MMA3001_Final/
+├── .github/workflows/ci.yml   Runs the tests on every push (Python 3.10 and 3.12)
+├── README.md                  This file
+├── LICENSE                    MIT licence (code)
+├── pyproject.toml             Package metadata and dependencies
+├── src/occupancy/             Source code: one module per task (17 modules)
+├── scripts/                   Experiments: each writes its results to reports/ and its figures to doc/report/
+├── tools/                     Utilities: build the processed data, fetch weather data, rebuild docs
+├── tests/                     Unit tests (pytest), against known or hand-computed answers
+├── data/
+│   ├── processed/             Committed compact data used by every script
+│   └── raw/                   Course raw files (not committed; see its README)
+├── reports/                   Results (JSON, CSV) and the pytest report (HTML, XML, text)
+└── doc/
+    ├── report/                Report source, Word file and figures
+    ├── api/                   HTML API documentation (pdoc)
+    ├── walkthrough.ipynb      Notebook demonstrating the workflow using the package
+    └── project_brief/         Assessment brief and dataset description
 ```
 
-Trains SVR fresh, replays 12 real test-set predictions, then lets you type in your own scenario for a live prediction. Invalid inputs (e.g. negative CO2, hour 25, occupancy above 5) are rejected with the reason, and valid inputs outside the training range are predicted with an extrapolation warning ([`occupancy.input_validation`](src/occupancy/input_validation.py)).
+Functions live in `src/occupancy/` as importable, tested modules; scripts and the notebook only call them.
 
-## Running Experiments
+| Module | Purpose |
+|---|---|
+| `data_loading`, `env_sensors`, `external_weather` | Load and validate the raw occupancy log, the nested-JSON sensor log and Bureau of Meteorology CSVs |
+| `processed_data` | Save and load the compact committed data; fall back to it when raw files are absent |
+| `preprocessing`, `co2_regression` | 15-minute grids, occupancy count, lag/rolling/calendar features, supervised table |
+| `co2_models` | The four Week 5 regression pipelines and the selected (tuned) SVR |
+| `evaluation` | Chronological split, MAE/RMSE/R², block-bootstrap confidence intervals |
+| `co2_integration` | Trapezoidal (irregular and gap-aware) and Simpson's rules, Richardson check |
+| `input_validation` | Reject invalid forecast inputs; flag extrapolation beyond the training range |
+| `data_quality` | Hampel outlier screening; ventilation rate from the decay of CO₂ releases |
+| `performance` | Repeated timing, peak memory, model size, FLOPs per prediction, arithmetic intensity |
+| `sensor_intervals`, `sensor_matching`, `weather_comparison`, `rooms`, `sensors` | Sensor audit, zone matching, sensor-vs-weather check, labels |
 
-```bash
-python scripts/co2_prediction_experiment.py   # CO2 regression (all 4 models)
-python scripts/co2_integration_analysis.py    # Numerical integration analysis
-python scripts/multi_sensor_experiment.py     # Interval audit + pooled / cross-sensor experiments
-python scripts/sensor_matching_analysis.py    # Sensor-matching (lagged correlation) analysis
-python scripts/weekday_weekend_comparison.py  # Weekday vs weekend CO2 for both usable sensors
-python scripts/weather_comparison_analysis.py # Sensor vs Bureau of Meteorology weather
-pytest                                         # Run all 76 tests
-```
+## Workflow
 
-## Tests and Documentation
+Run from the repository root. Each step reproduces the committed results (timing measurements vary from run to run).
 
-The latest test run is committed in [`reports/`](reports/): [`test_report.html`](reports/test_report.html) (pytest-html), [`test_report.xml`](reports/test_report.xml) (JUnit XML) and [`test_report.txt`](reports/test_report.txt) — **76 tests, all passing**. CI re-runs the suite on every push and uploads the same reports as a build artifact.
+| Step | Command | Output | Report section |
+|---|---|---|---|
+| Baseline comparison | `python scripts/co2_prediction_experiment.py` | `reports/co2_prediction_results.json` | 5.1 |
+| Diagnostic plots | `python scripts/generate_diagnostic_charts.py` | charts 11–14, `reports/co2_test_predictions.csv` | 5.2, App. A |
+| More data, other rooms | `python scripts/multi_sensor_experiment.py` | `reports/multi_sensor_results.json`, charts 15–16 | 5.3, App. C |
+| Tuning, performance, sensitivity | `python scripts/optimisation_and_performance.py` (about 8 min) | `reports/optimisation_results.json`, chart 17 | 4.2, 5.4–5.6 |
+| Numerical integration | `python scripts/co2_integration_analysis.py` | `reports/co2_integration_results.json` | App. B |
+| Sensor vs weather | `python scripts/weather_comparison_analysis.py` | `reports/weather_comparison_results.json` | 4.2 |
+| Zone matching | `python scripts/sensor_matching_analysis.py`, then `plot_sensor_matching.py` | `reports/sensor_matching_results.json`, chart 10 | 6, App. C |
+| Weekday vs weekend | `python scripts/weekday_weekend_comparison.py` | `reports/weekday_weekend_results.json` | 5.1 |
+| Interactive demo | `python scripts/co2_demo.py` | console | 2.4 |
+| Rebuild docs, test report, Word report | `bash tools/build_docs.sh` | `doc/api/`, `reports/test_report.*`, `.docx` | |
 
-**HTML API documentation (pdoc):** browse it online at https://tgup0010-bot.github.io/MMA3001_Final/ (GitHub Pages), or open [`docs/api/index.html`](docs/api/index.html) locally.
+## Results
 
-To regenerate the test report and the API docs after changing the code:
+Test period: final 20% of rows in time order (3,402 rows from 11 March 2026); settings chosen by 5-fold time-series cross-validation on the training period only.
 
-```bash
-pytest -v --junitxml=reports/test_report.xml --html=reports/test_report.html --self-contained-html | tee reports/test_report.txt
-pdoc -o docs/api occupancy occupancy.co2_integration occupancy.co2_models occupancy.co2_regression \
-    occupancy.data_loading occupancy.env_sensors occupancy.evaluation occupancy.external_weather \
-    occupancy.input_validation occupancy.preprocessing occupancy.processed_data occupancy.rooms occupancy.sensor_intervals occupancy.sensor_matching occupancy.sensors \
-    occupancy.weather_comparison
-```
+| Model | MAE (ppm) | RMSE (ppm) | R² |
+|---|---|---|---|
+| Persistence (next = current) | 9.89 | 29.34 | 0.155 |
+| Linear Regression | 9.01 | 25.58 | 0.358 |
+| Decision Tree (tuned) | 8.93 | 25.32 | 0.371 |
+| Neural Network (tuned) | 8.86 | 25.22 | 0.376 |
+| **SVR, tuned: C = 100, ε = 2 ppm, γ = 0.03 (selected)** | **8.11** | 25.30 | 0.372 |
 
-## AI Declaration
+- **The selected SVR beats every alternative**, with 95% block-bootstrap intervals excluding zero (by 1.78 ppm over persistence and 0.91 ppm over Linear Regression), and is best in all five cross-validation folds.
+- **No model anticipates sudden rises.** On the 63 test rows where CO₂ rose by more than 30 ppm in 15 minutes, every model predicted none of the rise. The forecast suits gradual, early ventilation changes, not replacing a peak alarm.
+- **Occupancy does not help** this sensor (R² changes by at most 0.002): a data-driven search found no link between it and any monitored zone.
+- **Models do not transfer between rooms;** each room needs its own training data.
+- **Cost:** SVR needs about 500,000 operations per forecast (0.3 ms) against 36 for Linear Regression, which remains the interpretable fallback.
+- **Physics check:** the decay of 87 CO₂ releases gives a ventilation rate of 3.9 per hour (time constant about 15 minutes).
 
-Claude (Claude Code) was used throughout this project for data exploration, Python implementation, analysis, and drafting the report.
+## Data
 
-**What Claude assisted with**
-- Setting up the package structure and writing the scikit-learn pipeline code
-- Running the four-model comparison and the numerical integration analysis
-- Implementing the sensor-matching analysis
-- After teaching-team feedback to use the valid time intervals from the other sensors: the interval audit, the pooled and cross-sensor experiments, and the bootstrap significance check — including finding that the "frozen" sensors were re-sending a single stale packet
-- Repository maintenance: restoring a missing module and tests, regenerating the API docs and test report, and correcting the report's zone-matching description to match the code
-- Drafting the report
+- **`data/processed/`** (committed, about 12 MB): every CO₂, temperature and humidity reading of the five sensors, the occupancy log on a 15-minute grid, each CO₂ reading's server receive time, and the Bureau of Meteorology daily observations (Moorabbin Airport, station 086077). Built by `python tools/build_processed_data.py`; each table reads back identical to the raw-file version, and a test fails if any is missing.
+- **`data/raw/`** (not committed): the course files are 1.6 GB and 353 MB, beyond GitHub's 100 MB file limit, and are course-supplied rather than ours to redistribute. [`data/raw/README.md`](data/raw/README.md) lists them. When they are present, every script uses them instead of the processed copies.
+- Main analysis: sensor `6012002000326`, genuine readings 7 September 2025 to 22 April 2026. Three of the five sensors only re-send one stale packet and contain no genuine readings.
 
-**What I directed and decided**
-- Chose CO2 prediction over occupancy classification, as a better fit for the Week 5 regression focus and the available data
-- Selected the sensor and required external validation (Bureau of Meteorology) before accepting it as reliable
-- Included occupancy as a feature to be tested empirically, rather than assumed useful or useless
-- Required an explanation when the integrated CO₂ exposure came out about four times too large, which exposed the gap-bridging error
-- Brought the teaching team's feedback to Claude, approved the follow-up experiments, and chose to report the non-significant and negative results as they are
+## Testing and documentation
 
-**What I verified:** every number in the report was checked against the output files in [`reports/`](reports/), and all results come from scripts that can be rerun to reproduce them.
+- **Tests:** `pytest` runs 90 tests on synthetic or hand-checkable inputs: integration of known functions and the order of accuracy (error falls 4× and 16× as the step halves), hand-computed metrics, the decay fit on a manufactured exponential, outlier detection, input validation, data loading edge cases and the committed data. Latest report: [`reports/test_report.html`](reports/test_report.html) (also XML and text).
+- **API documentation:** generated by pdoc from the Google-style docstrings, in [`doc/api/`](doc/api/) and online at https://tgup0010-bot.github.io/MMA3001_Final/.
+- **Walkthrough:** [`doc/walkthrough.ipynb`](doc/walkthrough.ipynb) runs the workflow end to end by importing the package.
+- Run `bash tools/build_docs.sh` after changing code or the report, so documentation and code stay in sync.
 
-**Honest acknowledgement:** in extended AI-assisted work, the boundary between my ideas and ideas that emerged from working with Claude cannot always be drawn precisely. The engineering framing, scope decisions, sensor selection rationale and interpretation of results are mine; the implementation and much of the written prose were produced collaboratively. The full reflection is in Section 7 of the [project report](docs/report/report.md).
+## AI use
 
-## License
+Claude Code (Anthropic) and the Claude chat interface were used throughout: Claude wrote most of the code, ran the analyses and drafted most of the report. The engineering direction and decisions were mine (problem choice, sensor choice and its external validation, testing occupancy rather than assuming it, acting on teaching-team feedback, reporting negative results as they are), and every reported number was checked against the output files and the data. AI errors found during checking are listed in Section 7 of the report, which is the full reflection.
 
-MIT — see [`LICENSE`](LICENSE). Course-supplied raw data is excluded from version control.
+## Licence
+
+Code: MIT, see [`LICENSE`](LICENSE). The licence does not cover the course-supplied raw data (MMA3001, Monash University), which is not in this repository. The processed data in `data/processed/` is derived from it for reproducibility of this coursework.

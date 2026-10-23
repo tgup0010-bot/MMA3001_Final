@@ -9,7 +9,7 @@ Data source and its real limitation
 ------------------------------------
 Files are BoM's public monthly "Daily Weather Observations" CSVs for
 Moorabbin Airport (station 086077 -- the nearest official BoM station to
-Monash Clayton), fetched by :mod:`scripts.fetch_bom_weather`. BoM's bulk
+Monash Clayton), fetched by ``tools/fetch_bom_weather.py``. BoM's bulk
 historical-download endpoint (Climate Data Online) actively blocks
 automated requests as scraping; only a rolling ~15-month window of recent
 months is fetchable this way. This means comparisons using this module can
@@ -33,7 +33,7 @@ BOM_ENCODING = "latin-1"
 
 #: Number of preamble lines (title, prepared-at, copyright, notes, station,
 #: blank) before the header row in each monthly file -- verified against
-#: the actual downloaded files (see scripts/fetch_bom_weather.py).
+#: the actual downloaded files (see tools/fetch_bom_weather.py).
 PREAMBLE_LINES = 6
 
 #: Clean column names, by position, replacing BoM's verbose (and
@@ -73,7 +73,7 @@ def load_bom_month(path: PathLike) -> pd.DataFrame:
 
     Args:
         path: Path to a single ``IDCJDW*.csv`` file, as saved by
-            :mod:`scripts.fetch_bom_weather`.
+            ``tools/fetch_bom_weather.py``.
 
     Returns:
         A DataFrame with one row per day and the columns in
@@ -117,7 +117,7 @@ def load_bom_weather(directory: PathLike) -> pd.DataFrame:
     if not files:
         raise FileNotFoundError(
             f"No BoM CSV files found in {directory}. Run "
-            "scripts/fetch_bom_weather.py first."
+            "tools/fetch_bom_weather.py first."
         )
     months = [load_bom_month(f) for f in files]
     out = pd.concat(months, ignore_index=True)
