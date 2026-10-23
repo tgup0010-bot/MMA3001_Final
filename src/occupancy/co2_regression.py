@@ -4,7 +4,7 @@ A genuine regression task (continuous CO2 target, ppm) using the MMA3001
 Week 5 methods (Linear Regression, Decision Tree Regression, SVR, Neural
 Network Regression) -- not the classification methods used for occupancy
 prediction. This directly follows up on Keenan Granland's EdStem
-suggestion ("irming scope #81") and the negative result found in
+suggestion (thread #81, "Confirming scope") and the negative result found in
 occupancy.sensor_matching: since no single occupancy zone could be
 statistically linked to sensor 6012002000326 (the one sensor with real,
 trustworthy CO2 data -- see occupancy.weather_comparison for its

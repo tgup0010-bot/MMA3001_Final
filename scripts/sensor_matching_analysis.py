@@ -3,7 +3,7 @@
 The supplied location spreadsheet cannot map most occupancy zones to the
 environmental sensors (see README, Known data limitations). This script
 tests the alternative Keenan Granland suggested on the EdStem forum
-("irming scope #81"): rather than assume a room correspondence, look for
+(thread #81, "Confirming scope"): rather than assume a room correspondence, look for
 one in the data itself, by correlating each zone's occupancy pattern
 against each sensor's readings.
 

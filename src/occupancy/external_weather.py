@@ -1,7 +1,7 @@
 """Loading of real Bureau of Meteorology daily weather observations.
 
 External validation data for the environmental sensor log, per Keenan
-Granland's third suggestion on the EdStem forum ("irming scope #81"): does
+Granland's third suggestion on the EdStem forum (thread #81, "Confirming scope"): does
 a sensor's reading make sense against real outdoor weather for the same
 days?
 

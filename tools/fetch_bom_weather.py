@@ -1,7 +1,7 @@
 """Fetch real Bureau of Meteorology daily weather observations for Moorabbin
 Airport (station 086077, the nearest official BoM station to Monash
 Clayton) -- external validation data for the environmental sensor log, per
-Keenan Granland's third suggestion on the EdStem forum ("irming scope #81").
+Keenan Granland's third suggestion on the EdStem forum (thread #81, "Confirming scope").
 
 Important, honestly-scoped limitation: BoM's bulk historical-download
 endpoint (Climate Data Online) actively blocks automated requests as

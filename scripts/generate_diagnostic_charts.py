@@ -21,6 +21,8 @@ row-level test predictions this time, and produces:
      diagnostic for spotting systematic bias.
   4. ``chart14_train_test_split.png`` -- the train/test split over the
      full sensor history.
+  5. ``chart11b_spike_window.png`` -- the 5-day window of chart 11 on its
+     own, compact enough for the main text of the report.
 
 Also writes ``reports/co2_test_predictions.csv`` (time, actual, and each
 model's prediction for every test-set row) so these -- or any future
@@ -141,8 +143,7 @@ def chart_predictions_timeseries(preds: pd.DataFrame) -> None:
     ax_top.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
 
     # Bottom: a representative 5-day window at native 15-min resolution.
-    window_start = preds.index.min() + pd.Timedelta(days=3)
-    window_end = window_start + pd.Timedelta(days=5)
+    window_start, window_end = _spike_window(preds)
     window = preds.loc[window_start:window_end]
     ax_bot.plot(window.index, window["actual"], color=TRUTH_COLOR, linewidth=2.0, label="Ground truth (CO2)")
     for name, style in MODEL_STYLE.items():
@@ -163,6 +164,37 @@ def chart_predictions_timeseries(preds: pd.DataFrame) -> None:
     fig.suptitle("Predicted vs. actual CO2 — all four Week 5 regression models", fontsize=15, fontweight="bold", y=0.995)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(OUT_DIR / "chart11_predictions_timeseries.png", dpi=150)
+    plt.close(fig)
+
+
+def _spike_window(preds: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """The representative 5-day window shown at 15-minute resolution."""
+    window_start = preds.index.min() + pd.Timedelta(days=3)
+    return window_start, window_start + pd.Timedelta(days=5)
+
+
+def chart_spike_window(preds: pd.DataFrame) -> None:
+    """Chart 11's detail window alone: every model follows each spike one step late."""
+    preds = preds.set_index(pd.to_datetime(preds["time"]))
+    window_start, window_end = _spike_window(preds)
+    window = preds.loc[window_start:window_end]
+    fig, ax = plt.subplots(figsize=(12, 4.4))
+    ax.plot(window.index, window["actual"], color=TRUTH_COLOR, linewidth=2.0, label="Ground truth (CO2)")
+    for name, style in MODEL_STYLE.items():
+        ax.plot(
+            window.index, window[name], color=style["color"], linewidth=1.2,
+            marker=style["marker"], markersize=3, markevery=8, alpha=0.85, label=name,
+        )
+    ax.set_title(f"Test period, {window_start.date()} to {window_end.date()} (15-minute resolution)")
+    ax.set_ylabel("CO2 (ppm)")
+    ax.grid(**GRID_KW)
+    # One legend row above the data, so it never hides a spike.
+    ax.set_ylim(top=window[["actual", *MODEL_STYLE]].max().max() * 1.18)
+    ax.legend(loc="upper center", fontsize=9, ncol=5, framealpha=0.9)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b %H:%M"))
+    plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "chart11b_spike_window.png", dpi=150)
     plt.close(fig)
 
 
@@ -252,7 +284,8 @@ def main() -> None:
     chart_predicted_vs_actual(preds)
     chart_residuals(preds)
     chart_train_test_split(table, cutoff)
-    print(f"Saved 4 charts -> {OUT_DIR}")
+    chart_spike_window(preds)
+    print(f"Saved 5 charts -> {OUT_DIR}")
 
 
 if __name__ == "__main__":

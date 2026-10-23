@@ -5,7 +5,7 @@ observations for the same days: does the sensor's temperature/humidity
 plausibly track outdoor conditions (as any real, working indoor sensor
 subject to some outdoor influence should), or is it disconnected from
 reality (suggesting a faulty sensor)? This is Keenan Granland's third
-EdStem suggestion ("irming scope #81") -- pulling in an external dataset
+EdStem suggestion (thread #81, "Confirming scope") -- pulling in an external dataset
 for comparison -- applied to whichever sensor actually has overlapping
 dates with BoM's fetchable window (see
 :mod:`occupancy.external_weather` for why that window is limited, and the
@@ -65,8 +65,10 @@ def compare_to_bom(
 
     Returns:
         A dict with ``correlation`` (Pearson r, NaN if under
-        ``min_overlap_days``), ``n_days`` (overlapping days used), and
-        ``date_range`` (``(first, last)`` overlapping dates, or ``None``).
+        ``min_overlap_days``), ``change_correlation`` (Pearson r of the
+        day-to-day changes, NaN when it cannot be computed), ``n_days``
+        (overlapping days used), and ``date_range`` (``(first, last)``
+        overlapping dates, or ``None``).
     """
     # Only days present in both series count: a correlation over mismatched
     # dates would be meaningless.
@@ -76,7 +78,12 @@ def compare_to_bom(
     ).dropna()
 
     if len(aligned) < min_overlap_days:
-        return {"correlation": float("nan"), "n_days": len(aligned), "date_range": None}
+        return {
+            "correlation": float("nan"),
+            "change_correlation": float("nan"),
+            "n_days": len(aligned),
+            "date_range": None,
+        }
 
     # A faulty sensor (stuck value, frozen clock, noise) gives r near zero, so
     # a clearly positive r is evidence the sensor measures real conditions.
@@ -88,6 +95,30 @@ def compare_to_bom(
         corr = aligned["indoor"].corr(aligned["outdoor"])
     return {
         "correlation": corr,
+        "change_correlation": _change_correlation(aligned),
         "n_days": len(aligned),
         "date_range": (min(aligned.index), max(aligned.index)),
     }
+
+
+def _change_correlation(aligned: pd.DataFrame) -> float:
+    """Pearson r between the day-to-day changes of the indoor and outdoor series.
+
+    Both series share the seasonal cycle, which alone would correlate them;
+    differencing consecutive days removes it, so a clear positive value shows
+    the sensor follows the weather from one day to the next.
+
+    Args:
+        aligned: Columns ``indoor`` and ``outdoor``, indexed by date.
+
+    Returns:
+        Pearson r over pairs of consecutive calendar days present in both
+        series, or NaN if fewer than three pairs or either change is constant.
+    """
+    daily = aligned.copy()
+    daily.index = pd.to_datetime(daily.index)
+    # asfreq inserts missing days as NaN, so a change is never taken across a gap.
+    changes = daily.asfreq("D").diff().dropna()
+    if len(changes) < 3 or changes["indoor"].std() == 0 or changes["outdoor"].std() == 0:
+        return float("nan")
+    return float(changes["indoor"].corr(changes["outdoor"]))

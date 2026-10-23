@@ -9,11 +9,13 @@
     "6012002000227": {
       "Temperature": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       },
       "Humidity": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       }
@@ -21,18 +23,21 @@
     "6012002000241": {
       "Temperature": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       },
       "Humidity": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       }
     },
     "6012002000326": {
       "Temperature": {
-        "correlation": 0.8408306176722732,
+        "correlation": 0.8408306176722736,
+        "change_correlation": 0.753583665642339,
         "n_days": 222,
         "date_range": [
           "2025-09-07",
@@ -41,6 +46,7 @@
       },
       "Humidity": {
         "correlation": 0.6463759336958377,
+        "change_correlation": 0.6257178935967938,
         "n_days": 222,
         "date_range": [
           "2025-09-07",
@@ -51,11 +57,13 @@
     "6012002000777": {
       "Temperature": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       },
       "Humidity": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       }
@@ -63,11 +71,13 @@
     "6012002000869": {
       "Temperature": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       },
       "Humidity": {
         "correlation": NaN,
+        "change_correlation": NaN,
         "n_days": 0,
         "date_range": null
       }

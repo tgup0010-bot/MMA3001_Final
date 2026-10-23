@@ -77,3 +77,28 @@ def test_compare_to_bom_only_uses_overlapping_dates():
     result = compare_to_bom(indoor_daily, bom_df, "temp_9am_c", min_overlap_days=5)
     assert result["n_days"] == 10
     assert np.isnan(result["correlation"])  # constant series: r undefined, not an error
+
+
+def test_change_correlation_removes_a_shared_trend():
+    # Both series share a steep trend (the "season") but their day-to-day
+    # wiggles are opposite: levels correlate strongly, changes negatively.
+    dates = pd.date_range("2025-07-01", periods=20, freq="D").date
+    wiggle = np.array([1.0, -1.0] * 10)
+    outdoor = np.arange(20) * 2.0 + wiggle
+    indoor = np.arange(20) * 2.0 - wiggle
+    bom_df = pd.DataFrame({"date": dates, "temp_9am_c": outdoor})
+
+    result = compare_to_bom(pd.Series(indoor, index=dates), bom_df, "temp_9am_c")
+    assert result["correlation"] > 0.9
+    assert result["change_correlation"] < -0.9
+
+
+def test_change_correlation_skips_missing_days():
+    # Day 3 is missing: no change may be taken across the gap.
+    dates = pd.to_datetime(["2025-07-01", "2025-07-02", "2025-07-04", "2025-07-05", "2025-07-06"]).date
+    bom_df = pd.DataFrame({"date": dates, "temp_9am_c": [10.0, 12.0, 30.0, 31.0, 29.0]})
+    indoor = pd.Series([20.0, 21.0, -50.0, -49.5, -50.5], index=dates)
+
+    result = compare_to_bom(indoor, bom_df, "temp_9am_c", min_overlap_days=3)
+    # Only 07-01->02, 07-04->05, 07-05->06: all move together.
+    assert result["change_correlation"] == pytest.approx(1.0)

@@ -1,6 +1,6 @@
 """Compare environmental sensor readings against real BoM outdoor weather.
 
-Keenan Granland's third EdStem suggestion ("irming scope #81"): pull in an
+Keenan Granland's third EdStem suggestion (thread #81, "Confirming scope"): pull in an
 external dataset (he named BoM) to compare against the environmental
 sensor readings. This only works for whichever sensor(s) actually overlap
 BoM's fetchable date range (see occupancy.external_weather for why that
@@ -17,6 +17,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
+
 from occupancy.env_sensors import sensor_ids
 from occupancy.external_weather import load_bom_weather
 from occupancy.processed_data import bom_dir_raw_or_processed, env_readings_raw_or_processed
@@ -26,6 +32,8 @@ from occupancy.weather_comparison import compare_to_bom, daily_indoor_series
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
 BOM_DIR = Path("data/raw/bom")
 RESULTS_PATH = Path("reports/weather_comparison_results.json")
+CHART_PATH = Path("doc/report/chart18_bom_validation.png")
+CHART_SENSOR = "6012002000326"
 
 MIN_OVERLAP_DAYS = 14
 COMPARISONS = [
@@ -58,7 +66,7 @@ def main() -> None:
             status = (
                 "no usable overlap"
                 if result["n_days"] < MIN_OVERLAP_DAYS
-                else f"r={result['correlation']:+.3f}"
+                else f"r={result['correlation']:+.3f}, day-to-day change r={result['change_correlation']:+.3f}"
             )
             print(
                 f"  {label:30} {variable:12} n_days={result['n_days']:4}  {status}"
@@ -79,6 +87,50 @@ def main() -> None:
         )
     )
     print(f"\nSaved -> {RESULTS_PATH}")
+
+    plot_comparison(env_long, bom_df, all_results[CHART_SENSOR])
+
+
+def plot_comparison(env_long: pd.DataFrame, bom_df: pd.DataFrame, results: dict) -> None:
+    """Plot the main sensor's daily mean against BoM's 9 am value, one panel per variable."""
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "figure.facecolor": "#fcfcfb",
+            "axes.facecolor": "#fcfcfb",
+            "axes.edgecolor": "#898781",
+            "axes.titleweight": "bold",
+            "axes.titlesize": 13,
+            "axes.labelsize": 11,
+        }
+    )
+    outdoor_all = bom_df.set_index("date")
+    fig, axes = plt.subplots(2, 1, figsize=(12, 6.2), sharex=True)
+    units = {"Temperature": "\u00b0C", "Humidity": "%"}
+    for ax, (variable, outdoor_col) in zip(axes, COMPARISONS):
+        indoor = daily_indoor_series(env_long, CHART_SENSOR, variable)
+        both = pd.concat(
+            [indoor.rename("indoor"), outdoor_all[outdoor_col].rename("outdoor")], axis=1
+        ).dropna()
+        # Reindex to every day so the lines break across days missing from either series.
+        both.index = pd.to_datetime(both.index)
+        both = both.asfreq("D")
+        ax.plot(both.index, both["outdoor"], color="#eb6834", linewidth=1.2,
+                label="Outdoor: BoM Moorabbin Airport, 9 am")
+        ax.plot(both.index, both["indoor"], color="#0b0b0b", linewidth=2.0,
+                label=f"Indoor: sensor {CHART_SENSOR[-4:]}, daily mean")
+        r = results[variable]
+        ax.set_title(
+            f"{variable}: r = {r['correlation']:.2f} (day-to-day changes {r['change_correlation']:.2f}),"
+            f" {r['n_days']} days"
+        )
+        ax.set_ylabel(f"{variable} ({units[variable]})")
+        ax.grid(axis="y", linestyle="--", alpha=0.5, color="#c3c2b7")
+        ax.legend(loc="upper left", frameon=False, fontsize=9.5)
+    fig.tight_layout()
+    fig.savefig(CHART_PATH, dpi=150)
+    plt.close(fig)
+    print(f"Saved -> {CHART_PATH}")
 
 
 if __name__ == "__main__":

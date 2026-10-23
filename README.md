@@ -16,7 +16,7 @@ cd MMA3001_Final
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
-pytest                        # 90 tests, about 3 seconds
+pytest                        # 92 tests, about 4 seconds
 python scripts/co2_demo.py    # train the selected model and try your own inputs
 ```
 
@@ -73,11 +73,11 @@ Run from the repository root. Each step reproduces the committed results (timing
 | Step | Command | Output | Report section |
 |---|---|---|---|
 | Baseline comparison | `python scripts/co2_prediction_experiment.py` | `reports/co2_prediction_results.json` | 5.1 |
-| Diagnostic plots | `python scripts/generate_diagnostic_charts.py` | charts 11–14, `reports/co2_test_predictions.csv` | 5.2, App. A |
-| More data, other rooms | `python scripts/multi_sensor_experiment.py` | `reports/multi_sensor_results.json`, charts 15–16 | 5.3, App. C |
-| Tuning, performance, sensitivity | `python scripts/optimisation_and_performance.py` (about 8 min) | `reports/optimisation_results.json`, chart 17 | 4.2, 5.4–5.6 |
+| Diagnostic plots | `python scripts/generate_diagnostic_charts.py` | charts 11, 11b, 12–14, `reports/co2_test_predictions.csv` | 5.2, App. A |
+| More data, other rooms | `python scripts/multi_sensor_experiment.py` | `reports/multi_sensor_results.json`, charts 15–16 | 5.3, App. A, C |
+| Tuning, performance, sensitivity | `python scripts/optimisation_and_performance.py` (about 8 min) | `reports/optimisation_results.json`, chart 17 | 4.2, 5.4–5.6, App. A |
 | Numerical integration | `python scripts/co2_integration_analysis.py` | `reports/co2_integration_results.json` | App. B |
-| Sensor vs weather | `python scripts/weather_comparison_analysis.py` | `reports/weather_comparison_results.json` | 4.2 |
+| Sensor vs weather | `python scripts/weather_comparison_analysis.py` | `reports/weather_comparison_results.json`, chart 18 | 4.2, 6 |
 | Zone matching | `python scripts/sensor_matching_analysis.py`, then `plot_sensor_matching.py` | `reports/sensor_matching_results.json`, chart 10 | 6, App. C |
 | Weekday vs weekend | `python scripts/weekday_weekend_comparison.py` | `reports/weekday_weekend_results.json` | 5.1 |
 | Interactive demo | `python scripts/co2_demo.py` | console | 2.4 |
@@ -102,6 +102,13 @@ Test period: final 20% of rows in time order (3,402 rows from 11 March 2026); se
 - **Cost:** SVR needs about 500,000 operations per forecast (0.3 ms) against 36 for Linear Regression, which remains the interpretable fallback.
 - **Physics check:** the decay of 87 CO₂ releases gives a ventilation rate of 3.9 per hour (time constant about 15 minutes).
 
+**Can the data be trusted? (RQ0)**
+
+- **The main sensor measures real conditions.** Against independent Bureau of Meteorology weather (Moorabbin Airport, 9 am observations, 222 days), sensor 0326's daily mean temperature correlates at r = 0.84 and humidity at r = 0.65; their day-to-day changes, which remove the shared seasonal trend, at 0.75 and 0.63. A stuck or frozen sensor would give r near zero.
+- **Three of the five sensors are not working:** they only re-send one stale packet, found by comparing each reading's timestamp with its server receive time.
+- **Sensor 0326 is in none of the monitored occupancy zones**, and is missing from the location spreadsheet.
+- **For the building:** repair the three sensors, record where every sensor is mounted, and put occupancy sensing in the same rooms as the CO₂ sensors before investing in predictive ventilation. Air quality in the monitored space is good: 99% of readings are at or below 516 ppm.
+
 ## Data
 
 - **`data/processed/`** (committed, about 12 MB): every CO₂, temperature and humidity reading of the five sensors, the occupancy log on a 15-minute grid, each CO₂ reading's server receive time, and the Bureau of Meteorology daily observations (Moorabbin Airport, station 086077). Built by `python tools/build_processed_data.py`; each table reads back identical to the raw-file version, and a test fails if any is missing.
@@ -110,7 +117,7 @@ Test period: final 20% of rows in time order (3,402 rows from 11 March 2026); se
 
 ## Testing and documentation
 
-- **Tests:** `pytest` runs 90 tests on synthetic or hand-checkable inputs: integration of known functions and the order of accuracy (error falls 4× and 16× as the step halves), hand-computed metrics, the decay fit on a manufactured exponential, outlier detection, input validation, data loading edge cases and the committed data. Latest report: [`reports/test_report.html`](reports/test_report.html) (also XML and text).
+- **Tests:** `pytest` runs 92 tests on synthetic or hand-checkable inputs: integration of known functions and the order of accuracy (error falls 4× and 16× as the step halves), hand-computed metrics, the decay fit on a manufactured exponential, the weather comparison removing a shared trend, outlier detection, input validation, data loading edge cases and the committed data. Latest report: [`reports/test_report.html`](reports/test_report.html) (also XML and text).
 - **API documentation:** generated by pdoc from the Google-style docstrings, in [`doc/api/`](doc/api/) and online at https://tgup0010-bot.github.io/MMA3001_Final/.
 - **Walkthrough:** [`doc/walkthrough.ipynb`](doc/walkthrough.ipynb) runs the workflow end to end by importing the package.
 - Run `bash tools/build_docs.sh` after changing code or the report, so documentation and code stay in sync.
