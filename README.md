@@ -105,7 +105,7 @@ Test period: final 20% of rows in time order (3,402 rows from 11 March 2026); se
 ## Data
 
 - **`data/processed/`** (committed, about 12 MB): every CO₂, temperature and humidity reading of the five sensors, the occupancy log on a 15-minute grid, each CO₂ reading's server receive time, and the Bureau of Meteorology daily observations (Moorabbin Airport, station 086077). Built by `python tools/build_processed_data.py`; each table reads back identical to the raw-file version, and a test fails if any is missing.
-- **`data/raw/`** (not committed): the course files are 1.6 GB and 353 MB, beyond GitHub's 100 MB file limit, and are course-supplied rather than ours to redistribute. [`data/raw/README.md`](data/raw/README.md) lists them. When they are present, every script uses them instead of the processed copies.
+- **`data/raw/`** (not committed): the course files are 1.6 GB and 353 MB, beyond GitHub's 100 MB file limit, and are course-supplied rather than ours to redistribute. [`data/raw/README.md`](data/raw/README.md) lists them. **Raw data host:** the MMA3001 course Google Drive folder, https://drive.google.com/drive/folders/1sB4UyZc4c6h67iKfmWcCm0Kv3DSjnCb2 (Monash login required). When the files are present in `data/raw/`, every script uses them instead of the processed copies.
 - Main analysis: sensor `6012002000326`, genuine readings 7 September 2025 to 22 April 2026. Three of the five sensors only re-send one stale packet and contain no genuine readings.
 
 ## Testing and documentation

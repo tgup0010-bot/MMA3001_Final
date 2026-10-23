@@ -13,6 +13,8 @@ A small, representative sample derived from these files **is** committed at
 [`data/processed/occupancy_sample_50k.csv`](../processed/occupancy_sample_50k.csv)
 for fast development and unit testing.
 
+**Where to get them:** the MMA3001 course Google Drive folder, https://drive.google.com/drive/folders/1sB4UyZc4c6h67iKfmWcCm0Kv3DSjnCb2 (Monash login required; download and unzip `5EnvSensor_MayToDec2024_180kRows.zip` and `5occupancySensor_MayToDec2024_9MRows.zip`).
+
 To reproduce this folder, place the following files (as supplied in the
 "MMA3001 Project Datasets" course materials) here:
 
