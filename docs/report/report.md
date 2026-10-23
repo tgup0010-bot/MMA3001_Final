@@ -18,7 +18,7 @@ where $C$ is indoor CO₂ (ppm), $G$ the per-person generation rate, $N$ the num
 
 ### 1.2 The Problem Being Addressed
 
-DCV reacts to the current reading: by the time CO₂ crosses its setpoint the air is already stale, and with a typical $\lambda$ of about 2 air changes per hour the room's time constant $1/\lambda$ is about 30 minutes, so extra ventilation takes tens of minutes to act. A short-term forecast lets the system act before the setpoint is crossed. The dataset brief lists both "evaluating whether the available measurements support decisions about comfort or energy use" and auditing "potentially unreliable observations"; this project does both. It is a supervised regression problem with three research questions:
+DCV reacts to the current reading: by the time CO₂ crosses its setpoint the air is already stale, and the decay of CO₂ releases in this room gives a ventilation rate of about 3.9 air changes per hour, a time constant $1/\lambda$ of about 15 minutes (Section 4.2), so extra ventilation takes that long to act. A short-term forecast lets the system act before the setpoint is crossed. The dataset brief lists both "evaluating whether the available measurements support decisions about comfort or energy use" and auditing "potentially unreliable observations"; this project does both. It is a supervised regression problem with three research questions:
 
 - **RQ1.** Can CO₂ 15 minutes ahead be forecast from recent sensor history and time of day, and which of the four Week 5 regression methods does it best?
 - **RQ2.** Does building occupancy data improve that forecast?
@@ -32,14 +32,14 @@ HVAC accounts for roughly half of the energy used in buildings (Pérez-Lombard e
 
 ### 1.4 Intended Use
 
-The forecaster is an advisory input to a building management system (BMS) or a facilities engineer. Every 15 minutes it takes the last hour of one room's CO₂ readings, the zone occupancy and the time, and returns the predicted CO₂ for the next 15 minutes; the BMS decides whether to raise outdoor airflow, and its own reactive setpoint stays in place as the safeguard, so the forecast is not safety-critical. Section 4 shows the models track the trend closely but under-predict sharp peaks, so the forecast is suited to early, gradual ventilation increases, not to replacing a peak alarm. A model must be trained for each room (RQ3, Section 4.2).
+The forecaster is an advisory input to a building management system (BMS) or a facilities engineer. Every 15 minutes it takes the last hour of one room's CO₂ readings, the zone occupancy and the time, and returns the predicted CO₂ for the next 15 minutes; the BMS decides whether to raise outdoor airflow, and its own reactive setpoint stays in place as the safeguard, so the forecast is not safety-critical. Section 5.2 shows the models follow gradual changes but do not anticipate sudden rises, so the forecast suits early, gradual ventilation increases, not replacing a peak alarm. A model must be trained for each room (RQ3, Section 4.2).
 
 ### 1.5 Scope and Its Justification
 
 | Scope decision | Justification |
 |---------------------------|-------------------------------------------------|
-| Main analysis on sensor `6012002000326`; `6012002000869` added for RQ3 | 0326 has the longest record of genuine readings; three of the five sensors contain none (Section 4.2) |
-| One forecast horizon, 15 minutes | Matches the 15-minute reporting interval and is about half the room time constant: long enough to act on, short enough to predict from history |
+| Main analysis on sensor `6012002000326`; `6012002000869` added for RQ3 | 0326 has the longest record of genuine readings; three of the five sensors contain none (Appendix C) |
+| One forecast horizon, 15 minutes | About one room time constant (Section 4.2), long enough to act on; and the grid of the occupancy data |
 | The four Week 5 regression methods; no ARIMA or recurrent networks | The unit's methods, compared on equal terms; the lag and rolling features already give them the autoregressive structure of the mass balance |
 | No ventilation-rate or outdoor CO₂ inputs | Not in the dataset, so $\lambda$ and $C_{\text{out}}$ cannot be modelled directly; the mass balance motivates the features instead |
 | One building; no closed-loop control simulation | The dataset covers one site, and simulating fan control needs an HVAC model that is not available; the project evaluates forecast quality only |
@@ -63,7 +63,7 @@ The raw files exceed GitHub's 100 MB limit, so compact processed copies of the p
 
 **Time.** All timestamps are converted to UTC and then to Australia/Melbourne local time, so the time-of-day features follow the building's clock across daylight-saving changes (the raw offsets switch between +10 and +11 hours).
 
-**Binning.** Each sensor's readings are averaged into 15-minute bins; a bin with no reading is missing.
+**Binning.** The sensors report every 10 minutes; readings are averaged into 15-minute bins (one or two readings each), the grid of the occupancy data, and a bin with no reading is missing. Section 5.6 shows 10-minute bins give the same forecast skill.
 
 **Occupancy.** A zone is occupied in a bin if its most recent status within the previous 2 hours is `CurrentlyOccupied`; `RecentlyOccupied`, the sensor's post-departure cooldown state, counts as not occupied. A zone with no event in the previous 2 hours is unknown. `building_occupancy` is the number of the five zones occupied: unknown zones count as not occupied, and the value is missing only when all five are unknown. The log's `headcount` column is not used, so the feature counts occupied zones, not people.
 
@@ -81,115 +81,252 @@ The raw files exceed GitHub's 100 MB limit, so compact processed copies of the p
 
 ### 2.3 Input Domains
 
-Two domains are distinguished. The **valid domain** is what the model accepts at all, checked by `occupancy.input_validation`: CO₂ inputs 350–5000 ppm (indoor air cannot hold less CO₂ than the outdoor air ventilating it, allowing for sensor noise; 5000 ppm is the 8-hour occupational exposure limit, ACGIH and OSHA), occupancy a whole number 0–5, hour 0–23, day 0–6. The **trained domain** is the range of values in the training data: current CO₂ from 400 to 1387 ppm, but 99.5% of the 13,608 training rows lie between 400 and 550 ppm, so accuracy is established mainly in that band (Section 4.1). Valid inputs outside the training range are predicted but flagged as extrapolation.
+Two domains are distinguished. The **valid domain** is what the model accepts at all, checked by `occupancy.input_validation`: CO₂ inputs 350–5000 ppm (indoor air cannot hold less CO₂ than the outdoor air ventilating it, allowing for sensor noise; 5000 ppm is the 8-hour occupational exposure limit, ACGIH and OSHA), occupancy a whole number 0–5, hour 0–23, day 0–6. The **trained domain** is the range of values in the training data: current CO₂ from 400 to 1387 ppm, but 99.5% of the 13,608 training rows lie between 400 and 550 ppm, so accuracy is established mainly in that band (Section 5.2). Valid inputs outside the training range are predicted but flagged as extrapolation.
 
 ### 2.4 Invalid, Missing and Unsupported Inputs
 
-**Missing.** A row with any missing input or target is dropped, never filled. The dominant loss is a 636-day gap in genuine readings (11 December 2023 to 7 September 2025): imputing across it would invent hundreds of thousands of readings. Of 84,576 candidate 15-minute timestamps, 17,010 (20.1%) are complete and used. In effect only *unbroken intervals* are kept: runs of consecutive bins with no gap. A row needs four bins of history plus the next bin as target, so any interval of at least 75 minutes contributes, and an interval of $n$ bins yields $n - 4$ rows; sensor 0326 has 649 such intervals covering 4,978 hours. Section 4.2 counts 17,317 rows for the same sensor because those experiments do not use occupancy; the 307 extra rows are bins with no occupancy value.
+**Missing.** A row with any missing input or target is dropped, never filled. The dominant loss is a 636-day gap in genuine readings (11 December 2023 to 7 September 2025): imputing across it would invent hundreds of thousands of readings. Of 84,576 candidate 15-minute timestamps, 17,010 (20.1%) are complete and used. In effect only *unbroken intervals* are kept: runs of consecutive bins with no gap. A row needs four bins of history plus the next bin as target, so any interval of at least 75 minutes contributes, and an interval of $n$ bins yields $n - 4$ rows; sensor 0326 has 649 such intervals covering 4,978 hours. Section 5.3 counts 17,317 rows for the same sensor because those experiments do not use occupancy; the 307 extra rows are bins with no occupancy value.
 
-**Invalid.** Three checks apply to the raw data. A reading received more than a day after its own timestamp is a re-sent stale packet, not a measurement; three sensors consist entirely of these (Section 4.2). Failed reads (no value) and malformed JSON payloads are skipped when the log is loaded. For a forecast query, `validate_query` rejects values outside the valid domain with the reason, and the demonstration program refuses to predict from them.
+**Invalid.** Three checks apply to the raw data. A reading received more than a day after its own timestamp is a re-sent stale packet, not a measurement; three sensors consist entirely of these (Appendix C). Failed reads (no value) and malformed JSON payloads are skipped when the log is loaded. For a forecast query, `validate_query` rejects values outside the valid domain with the reason, and the demonstration program refuses to predict from them.
 
-**Unsupported.** Some inputs are valid but outside what the model was built for: CO₂ outside the trained range (flagged as extrapolation), a different room (a model trained on one room is worse than persistence on another, Section 4.2), and a different bin size or horizon (the model must be retrained). These cannot all be detected from one query, so they are stated here and in the README.
+**Unsupported.** Some inputs are valid but outside what the model was built for: CO₂ outside the trained range (flagged as extrapolation), a different room (a model trained on one room is worse than persistence on another, Section 5.3), and a different bin size or horizon (the model must be retrained). These cannot all be detected from one query, so they are stated here and in the README.
 
 ### 2.5 Outputs
 
 | Output | Units | Meaning and intended use |
 |------------------------------|-------|--------------------------------------|
-| Forecast CO₂ for the next 15 minutes | ppm | The main output: an advisory input to the BMS. Typical error 8.35 ppm (MAE, SVR), larger above about 600 ppm, where the models under-predict (Section 4.1) |
+| Forecast CO₂ for the next 15 minutes | ppm | The main output: an advisory input to the BMS. Typical error 8.1 ppm (MAE, selected SVR); sudden rises are not anticipated (Section 5.2) |
 | Extrapolation warning | text | Flags a forecast made outside the trained domain |
-| Model metrics (JSON in `reports/`) | ppm, R² | Compare methods and select the model (Section 4) |
-| Test-set predictions (CSV in `reports/`) | ppm | Residual and diagnostic analysis (Section 4.1) |
-| Cumulative CO₂ exposure (JSON in `reports/`) | ppm·h | Occupant exposure over a period; verifies the integration methods (Section 5.4) |
-| Sensor audit results (JSON in `reports/`) | Pearson $r$ | Whether a sensor measures real conditions and which zone it serves (Sections 5.3, 6) |
+| Model metrics (JSON in `reports/`) | ppm, R² | Compare methods and select the model (Section 5) |
+| Test-set predictions (CSV in `reports/`) | ppm | Residual and diagnostic analysis (Section 5.2) |
+| Cumulative CO₂ exposure (JSON in `reports/`) | ppm·h | Occupant exposure over a period; verifies the integration methods (Section 4.2) |
+| Sensor audit results (JSON in `reports/`) | Pearson $r$ | Whether a sensor measures real conditions and which zone it serves (Sections 4.2, 6) |
 
-The model only forecasts; thresholds and ventilation commands belong to the BMS. A practical rule might set an early-warning trigger at 750 ppm, 50 ppm below 800 ppm, a common stricter target than the 1000 ppm guideline. The 50 ppm margin is about six times the MAE and twice the RMSE (Section 4). Inputs and outputs of each function (types, units and shapes) are documented in the docstrings and the generated HTML documentation.
+The model only forecasts; thresholds and ventilation commands belong to the BMS. A practical rule might set an early-warning trigger at 750 ppm, 50 ppm below 800 ppm, a common stricter target than the 1000 ppm guideline. The 50 ppm margin is about six times the MAE and twice the RMSE of the selected model (Section 5). Inputs and outputs of each function (types, units and shapes) are documented in the docstrings and the generated HTML documentation.
 
 ---
 
-## 3. Computational Solution
+## 3. Computational Approach
 
-### 3.1 Implementation
+### 3.1 Methods and Why They Were Selected
 
-All four models are scikit-learn `Pipeline` objects with a `StandardScaler` step (zero mean, unit variance per feature) before the estimator. Scaling is essential for SVR and the neural network: the RBF kernel uses Euclidean distances, which unscaled features (CO₂ in ppm beside a 0/1 weekend flag) would distort. Using the same preprocessing for all four keeps the comparison fair.
+The forecast is a supervised regression from the nine inputs of Section 2.2 to next-bin CO₂. Four Week 5 methods were compared because they span the range from fully interpretable to highly flexible: **Linear Regression** (the baseline any other method must beat), a **Decision Tree** (non-linear, readable rules), **Support Vector Regression** (smooth non-linear fit from a convex optimisation) and a **multilayer perceptron** (the most flexible). All four handle about 17,000 rows on a laptop in seconds, so the choice can rest on evidence rather than cost. A **persistence forecast** (next value equals current value) is the reference floor. The Week 6 **trapezoidal and Simpson's rules** compute cumulative CO₂ exposure and serve as an independent numerical check on the data pipeline.
 
 ### 3.2 How Each Method Works
 
-**Linear Regression** fits a hyperplane through the training data by minimising the sum of squared residuals:
+**Linear Regression** fits $\hat{C}_{t+1} = \beta_0 + \sum_{i=1}^{9} \beta_i x_i$ by least squares. It cannot represent interactions, such as CO₂ rising faster on weekday mornings than on Sundays.
 
-$$\hat{C}_{t+1} = \beta_0 + \sum_{i=1}^{9} \beta_i x_i$$
+**Decision Tree Regression** splits the input space into rectangles by binary rules that minimise target variance; each leaf predicts the mean of its training rows, so its output is piecewise constant and cannot exceed the training range.
 
-It assumes each feature contributes linearly and additively, so it cannot capture interactions (e.g. high CO₂ on a weekday morning rising faster than on a Sunday). It is the interpretable baseline the other methods must beat.
+**SVR** finds the flattest function, in the space defined by the RBF kernel $K(\mathbf{x}_i, \mathbf{x}_j) = \exp(-\gamma \|\mathbf{x}_i - \mathbf{x}_j\|^2)$, that keeps residuals within a tube of half-width $\varepsilon$; $C$ penalises points outside it. Training is convex (one global optimum). Every training row on or outside the tube becomes a *support vector*, and each prediction sums a kernel term over all of them.
 
-**Decision Tree Regression** splits the feature space into rectangular regions with binary splits that minimise target variance; each leaf predicts the mean CO₂ of its training points. It captures non-linearity and interactions but tends to overfit, so maximum depth was limited to 8.
+**The neural network** is a multilayer perceptron with ReLU hidden layers and a linear output, trained with Adam. Its loss is non-convex, so the result depends on the random starting weights.
 
-**Support Vector Regression (SVR)** fits a smooth function that keeps most residuals inside an ε-wide tube and penalises points outside it, working in a high-dimensional space defined implicitly by the RBF kernel
+**Numerical integration.** Cumulative exposure $E = \int C\,dt$ (ppm·h) is computed with the trapezoidal rule on the actual, irregular reading times (error $O(h^2)$) and with composite Simpson's 1/3 rule on a regular grid (error $O(h^4)$, needs an even number of intervals). A gap-aware variant skips panels wider than 2 hours, so the rule never interpolates across a sensor outage.
 
-$$K(\mathbf{x}_i, \mathbf{x}_j) = \exp\!\left(-\gamma \|\mathbf{x}_i - \mathbf{x}_j\|^2\right)$$
+### 3.3 Assumptions
 
-Training is a convex optimisation with no local minima, so it is more stable than the neural network. $C = 10$ sets the penalty for leaving the tube; $\varepsilon = 0.5$ ppm is the tube half-width.
+1. The room is well mixed, so one sensor represents it (the mass balance of Section 1.1).
+2. The last hour of CO₂ plus time of day carries the information needed to forecast 15 minutes ahead (autoregression).
+3. The process is stationary over the record: the training period behaves like the test period. This is what the chronological split tests.
+4. A 15-minute mean of the 10-minute readings is representative of the bin.
+5. Bins with missing data are absent, not zero; gaps over 2 hours are unknown.
 
-**Neural Network Regression** is a multilayer perceptron with two ReLU hidden layers (32 then 16 units) and a linear output, trained with Adam and early stopping (patience of 10 epochs). It is the most expressive method, but the least interpretable and the most data-hungry.
+### 3.4 Settings
 
-### 3.3 Parameters
+All four models are scikit-learn `Pipeline` objects: a `StandardScaler` (fitted on training rows only, so no test information leaks into the scaling) followed by the regressor. Scaling matters most for SVR and the neural network, whose distances and gradients would otherwise be dominated by CO₂ in hundreds of ppm beside a 0/1 weekend flag.
 
-| Parameter | Value | Rationale |
-|---------|-------|------------------------|
-| Bin size | 15 minutes | Matches sensor reporting cadence |
-| Prediction horizon | 15 minutes ahead | Minimum lead time for meaningful ventilation pre-emption |
-| Train/test split | 80 % / 20 %, chronological | Reflects deployment: model only sees past data |
-| Training cutoff | 11 March 2026 | 80th-percentile row in the 17,010-row dataset |
-| Decision Tree max depth | 8 | Limits leaf count; prevents memorisation of training period |
-| SVR kernel | RBF | Handles smooth non-linearity without specifying a basis |
-| SVR $C$ | 10 | Moderate regularisation; less restrictive than scikit-learn default |
-| SVR $\varepsilon$ | 0.5 | Tube width matched to sensor noise level |
-| NN hidden layers | 32 → 16 units | Sufficient capacity for 9 inputs; small enough to avoid overfitting 13,608 rows |
-| NN early stopping patience | 10 epochs | Halts training when validation loss stops improving |
+| Setting | Original value | Selected value (Section 5.4) | Role |
+|-----------------------|----------------|----------------|------------------------------------------|
+| Tree `max_depth`, `min_samples_leaf` | 8, 1 | 4, 50 | Limit tree size; prevent memorising the training period |
+| SVR $C$, $\varepsilon$, $\gamma$ | 10, 0.5 ppm, `scale` (≈0.11) | 100, 2 ppm, 0.03 | Penalty outside the tube, tube half-width, kernel width |
+| MLP layers, $\alpha$ (L2 penalty) | 32→16, 10⁻⁴ | 64→32, 1.0 | Capacity and weight regularisation |
+| MLP training | Adam, early stopping (10% validation, patience 10), at most 500 iterations, seed 42 | same | Convergence criterion and repeatability |
+| Split | 80/20 chronological, cutoff 11 March 2026 | same | Training 13,608 rows, test 3,402 |
+
+The original values were set by hand; the selected values come from the tuning in Section 5.4. The original $\varepsilon = 0.5$ ppm is below the sensor's 1 ppm resolution (consecutive overnight readings differ by a median of 6 ppm), so almost every training row (12,807 of 13,608) became a support vector.
+
+### 3.5 Implementation
+
+The code is a Python package, `src/occupancy`, with one module per task (loading, preprocessing, features, models, evaluation, integration, data quality, performance); experiment scripts in `scripts/` call it and write every reported number to `reports/*.json`. Each script runs from a fresh clone using the committed processed data (Section 2.1). Random seeds are fixed, 90 unit tests run on every push, and HTML documentation is generated from the docstrings.
+
+### 3.6 Known Limitations of the Methods
+
+Linear Regression is limited to additive effects. The tree's piecewise-constant output cannot extrapolate beyond the leaves it learned. SVR's prediction cost grows with the number of support vectors, and training scales between quadratically and cubically with rows. The neural network's result varies with the random seed (Section 5.6). Simpson's rule needs equally spaced, gap-free data; neither rule can recover readings that were never recorded.
 
 ---
 
-## 4. Alternative Solutions and Comparison
+## 4. Validation
 
-The four methods were evaluated on the held-out test set (3,402 rows, the final 20% in time order).
+### 4.1 Verification: Is the Code Correct?
 
-| Method | MAE (ppm) | RMSE (ppm) | R² | Fit time (s) | Predict time (ms) | Interpretability |
-|---|---|---|---|---|---|---|
-| Linear Regression | 9.012 | 25.579 | 0.358 | 0.005 | 1.7 | High |
-| Decision Tree | 9.353 | 28.708 | 0.191 | 0.023 | 2.5 | Medium |
-| **SVR** | **8.350** | **25.894** | **0.342** | 4.26 | 2854 | Low |
-| Neural Network | 9.350 | 26.015 | 0.336 | 2.36 | 2.3 | Very low |
+Numerical code was first checked against problems with known answers, in 90 automated tests (`tests/`, report in `reports/test_report.html`). The trapezoidal rule integrates a constant exactly and matches the unit's worked example; Simpson's rule is exact for a quadratic; a Richardson check confirms the expected error reduction (4× for trapezoidal, 16× for Simpson's when $h$ halves); the metrics match hand-computed values, and predicting the mean gives $R^2 = 0$; the lagged-correlation search finds a planted CO₂ response and stays weak for unrelated series; the decay-rate fit recovers a known ventilation rate from a manufactured exponential; and the processed data reads back identical to the raw files.
 
-**SVR** has the lowest MAE (8.35 ppm). Linear Regression has the highest R² (0.358), is close in MAE, and is the better choice where interpretability or speed matters. The Decision Tree is weakest (R² 0.191), likely overfitting, as its large RMSE relative to MAE suggests. SVR's prediction time (about 2.85 s per batch) is no constraint for a 15-minute task.
+### 4.2 Validation Design
 
-**Effect of building occupancy on prediction accuracy:**
+**What was validated:** the forecast accuracy of each model (RQ1–RQ3), the reliability of the sensor itself, the physical plausibility of its readings, and the integration results.
 
-| Method | R² with occupancy | R² without occupancy | Change |
-|---|---|---|---|
-| Linear Regression | 0.358 | 0.358 | 0.000 |
-| Decision Tree | 0.191 | 0.331 | −0.140 |
-| SVR | 0.342 | 0.344 | −0.002 |
-| Neural Network | 0.336 | 0.335 | +0.001 |
+| Evidence (brief's category) | Method | Why appropriate |
+|--------------------|-----------------------|--------------------------------------|
+| Withheld test data | Last 20% of rows in time order, used once at the end | Matches deployment: the model only ever sees the past. A random split would place test rows beside near-identical training rows 15 minutes away and measure interpolation, not forecasting |
+| Cross-validation | 5-fold time-series cross-validation inside the training period (each fold trains on earlier rows, scores on the next block) | Selects settings and the final model without touching the test data |
+| Trusted benchmark | Persistence forecast; bootstrap intervals on paired error differences (one-day blocks, as errors are correlated in time) | A model that cannot beat "no change" is useless; the intervals show whether differences are larger than chance |
+| Independent data | Sensor temperature and humidity vs Bureau of Meteorology (Moorabbin Airport) over 222 days: $r$ = +0.84 and +0.65 | A faulty sensor (stuck value, frozen clock) would give $r$ near zero |
+| Physical constraint | Decay of 87 sharp CO₂ releases fitted to the mass balance: ventilation rate 3.9 h⁻¹ (interquartile range 2.9–5.1), time constant about 15 minutes | Within the usual range for mechanically ventilated offices; confirms the readings follow the physics the features are built on |
+| Established method | Trapezoidal vs Simpson's on a 41-hour gap-free window: agree within 0.1% at 15, 30 and 60-minute spacing (Appendix B) | Two independent rules agreeing shows the data handling, not just one formula, is consistent |
 
-Occupancy gives no measurable improvement for any model, and the Decision Tree gets worse (R² 0.331 to 0.191) by wasting splits on it. Occupancy matters in principle (the mass balance), but nothing links this sensor to any of the five monitored zones (Section 6), so the building-wide count says nothing about this room.
+**Metrics and acceptance criteria.** MAE (typical error, ppm) is the selection metric; RMSE (sensitive to large misses) and $R^2$ (variance explained relative to predicting the mean) are reported alongside. Acceptance, from Section 1.2: beat persistence with a bootstrap interval excluding zero, and MAE well below the 50 ppm alarm margin.
 
-The daily pattern agrees (`scripts/weekday_weekend_comparison.py`). In room G.38 (sensor `6012002000869`), weekday CO₂ peaks at 13:00 and averages 505 ppm in working hours (9 am–5 pm) against 450 ppm at weekends — an occupied room. Sensor `6012002000326` peaks at 07:00, is lowest at 15:00, and has identical weekday and weekend working-hours means (436 ppm): it follows the ventilation schedule, not occupants, so neither occupancy nor the weekend flag helps.
+**Did validation influence model selection?** Yes, but only the cross-validation scores did. The original comparison (Section 5.1) chose SVR by its test-set MAE, which lets the test data influence the choice; this was corrected in Section 5.4, where tuning and selection use the training period only and the test period is used once.
 
-### 4.1 Diagnostic plots
+**What validation cannot establish.** It covers one sensor in one building over seven months, so it says nothing about other rooms (Section 5.3 shows models do not transfer), other seasons or a changed HVAC schedule. It measures forecast error, not whether ventilation control would actually improve, which would need a closed-loop trial. Above 550 ppm there are only 25 test rows, so accuracy at high CO₂ is poorly determined.
 
-The comparison table above is aggregate; the plots below show what it looks like row by row.
+---
 
-![Ground truth CO2 vs. all four models' predictions — full test set (daily mean) and a representative 5-day detail window at native 15-minute resolution](chart11_predictions_timeseries.png){width=4.3in}
+## 5. Comparison and Optimisation
 
-All four track the everyday CO2 trend closely; they diverge at the sharp spikes in the detail panel (14-19 March), where every model lags or flattens the peak — the Decision Tree even overshoots into a spike the sensor never reached (15 March), a symptom of its piecewise-constant leaves extrapolating from a small high-CO2 training leaf.
+### 5.1 Baseline Comparison (Original Settings)
 
-![Predicted vs. actual CO2 for each model on the held-out test set, with a y=x reference line](chart12_predicted_vs_actual.png){width=6.3in}
+| Method | MAE (ppm) | RMSE (ppm) | R² | Training MAE (ppm) |
+|---|---|---|---|---|
+| Persistence (benchmark) | 9.89 | 29.34 | 0.155 | n/a |
+| Linear Regression | 9.01 | **25.58** | **0.358** | 7.67 |
+| Decision Tree | 9.35 | 28.71 | 0.191 | 6.71 |
+| SVR | **8.35** | 25.89 | 0.342 | 6.80 |
+| Neural Network | 9.35 | 26.02 | 0.336 | 7.88 |
 
-![Residual (predicted minus actual) vs. predicted CO2 for each model](chart13_residuals.png){width=6.3in}
+Test period: 3,402 rows. All four models beat persistence. SVR has the lowest MAE, and the bootstrap interval on its advantage over Linear Regression (0.66 ppm, 95% interval 0.39 to 0.94) excludes zero; Linear Regression has the lowest RMSE and highest $R^2$. The Decision Tree overfits: it has the lowest training error but the gap to its test error is the largest (6.71 vs 9.35 ppm).
 
-Predicted-vs-actual makes the R² numbers concrete: all four point clouds hug y=x below 550 ppm, then fall well short of it as actual CO2 rises past 600 ppm. The residual plots show the same effect directionally: residuals sit near zero typically but turn increasingly negative as predicted CO2 rises, rather than scattering symmetrically — a model under-responding to its most extreme inputs, consistent with the training data being dominated by the 400-550 ppm range (Section 2.4).
+**RQ2, occupancy.** Removing building occupancy changes $R^2$ by at most 0.002 for Linear Regression, SVR and the neural network, and improves the Decision Tree (0.191 to 0.331), which was spending splits on it. Section 6 explains why: nothing links this sensor to any monitored zone. Its daily cycle agrees: it peaks at 07:00 and has identical weekday and weekend working-hours means (436 ppm), following the ventilation schedule, whereas room G.38 (sensor 0869) peaks at 13:00 and is 55 ppm higher on weekdays.
 
-### 4.2 Using every usable interval from all sensors
+### 5.2 Where the Models Fail
 
-Rather than accepting or rejecting whole sensors, the unbroken-interval rule (Section 2.4) was applied to all five: any interval of at least 75 minutes is usable. Comparing each reading's timestamp with the server receive time (`createdate`) showed that a sensor which stops measuring keeps re-sending its last packet about every 11 minutes.
+![Predicted vs actual CO₂ on the test period (original settings), with y = x](chart12_predicted_vs_actual.png){width=6.3in}
+
+![Residual (predicted minus actual) vs predicted CO₂](chart13_residuals.png){width=6.3in}
+
+The averages hide the important failure. On the 63 test rows where CO₂ rose by more than 30 ppm within 15 minutes, **no model predicted any of the rise**: the median share of the rise predicted is zero, and their error there (about 110 ppm) equals the persistence error. The residual plot shows the signature: large negative errors at ordinary predicted values (a spike arrived unforeseen) and positive errors at high predicted values (the model followed the spike one step late). The original SVR never predicted above 512 ppm and is biased low by 2.9 ppm. The models therefore beat persistence by smoothing normal fluctuations, not by anticipating releases, which come from events the inputs cannot see. The time series is in Appendix A.
+
+### 5.3 More Data and Other Rooms (RQ3)
+
+Cutting each sensor's record into unbroken intervals adds sensor 0869 (room G.38): 7,781 rows from February to June 2024; the other three sensors only ever re-send one stale packet (Appendix C). Using original settings and no occupancy: pooling both sensors (+56% training rows) changes SVR's MAE from 8.30 to 8.14 ppm, and no model's change is significant (all bootstrap intervals span zero). Trained on its own room, every model beats persistence on sensor 0869 (SVR MAE 6.99 ppm, $R^2$ 0.78); trained on the other room, every model is worse than persistence (7.75 ppm). A forecaster must be trained for each room.
+
+![MAE when pooling sensors (left) and transferring between rooms (right)](chart16_multi_sensor_results.png){width=5.2in}
+
+### 5.4 Optimisation: Tuning and the Selected Design
+
+Each method's settings were tuned by grid search (Section 3.4 lists the ranges) with 5-fold time-series cross-validation on the training period only, and the final model was chosen by cross-validated MAE (`scripts/optimisation_and_performance.py`).
+
+| Method | CV MAE, original (ppm) | CV MAE, tuned (ppm) | Test MAE, tuned (ppm) | Test R², tuned |
+|---|---|---|---|---|
+| Linear Regression | 7.67 | 7.67 (no settings) | 9.01 | 0.358 |
+| Decision Tree | 8.84 | 7.88 | 8.93 | 0.371 |
+| **SVR (selected)** | 7.49 | **7.26** | **8.11** | 0.372 |
+| Neural Network | 8.53 | 8.37 | 8.86 | 0.376 |
+
+![Tuning on training data (a), accuracy against prediction cost (b), and data requirement (c)](chart17_optimisation.png){width=6.5in}
+
+SVR has the lowest cross-validated error, and in every one of the five folds. On the test period the selected SVR ($C$ = 100, $\varepsilon$ = 2 ppm, $\gamma$ = 0.03) improves on the original SVR by 0.24 ppm (95% interval 0.10 to 0.43) and beats every alternative: persistence by 1.78 ppm (1.32 to 2.30), Linear Regression by 0.91 ppm (0.68 to 1.16), the tuned tree by 0.82 ppm and the tuned neural network by 0.76 ppm (both intervals exclude zero). Tuning fixed the tree's overfitting (test $R^2$ 0.191 to 0.371). The selected design meets the acceptance criteria: it beats persistence, and its 8.1 ppm MAE is a sixth of the 50 ppm margin.
+
+### 5.5 Performance: Time, Memory and Operations
+
+| Model (selected settings) | Fit (s) | Predict 3,402 rows (ms) | FLOPs per prediction | Model size (kB) |
+|---|---|---|---|---|
+| Linear Regression | 0.007 | 1.6 | 36 | 1 |
+| Decision Tree | 0.017 | 1.3 | 22 (comparisons) | 4 |
+| SVR | 5.4 | 924 | 5.1 × 10⁵ | 879 |
+| Neural Network | 4.1 | 2.2 | 5.5 × 10³ | 78 |
+
+Times are medians of repeated runs; peak memory while fitting was 2–4 MB for every model. Operation counts explain the times: an RBF-SVR prediction costs about $n_{sv}(3d + 22)$ FLOPs, and with $d$ = 9 inputs and 10,437 support vectors that is about 500,000 per row, 14,000 times the linear model's 36. Each support vector's 80 bytes must be read for about 49 operations, an arithmetic intensity of 0.6 FLOP/byte, so SVR prediction is limited by memory traffic (measured 1.9 GFLOP/s, against 8.4 GFLOP/s for the neural network's dense matrix products). Tuning reduced the support vectors from 12,807 to 10,437 (prediction about 20% faster) because the wider tube ignores errors under 2 ppm. Even so, 0.3 ms per forecast is negligible for a decision taken every 15 minutes. A `cProfile` run of the whole workflow from the raw files showed that 54% of the time went on parsing timestamps and reading the 1.9 GB of CSV, and only 7% on fitting SVR; the committed processed data removes that cost, cutting the main experiment from 109 s to 26 s.
+
+### 5.6 Sensitivity and Robustness
+
+- **Input resolution.** One-bin-ahead skill over persistence is 18% for 10-minute and 15-minute bins and 15% for 30-minute bins (SVR): 15 minutes loses nothing and matches the occupancy grid.
+- **Data requirement.** With only the most recent quarter of the training rows, SVR's test MAE is 8.30 ppm against 8.11 with all of them; Linear Regression needs the full set (9.91 to 9.01). More data of the same kind is not the bottleneck, consistent with the pooling result.
+- **Repeatability.** SVR gives identical results on every run. The tuned neural network's test MAE ranges from 8.68 to 9.26 ppm over five random seeds, a spread larger than most differences between methods.
+- **Robustness over time.** The cross-validation folds cover different months; fold MAE varies from 5.9 to 8.4 ppm for SVR, and SVR is best in every fold.
+- **Integration gap threshold.** Exposure changes by 1.2% for thresholds from 0.5 to 24 hours (2.29 to 2.31 million ppm·h), but bridging the 636-day outage inflates it fourfold (9.54 million): only the outage matters.
+- **Outliers.** A Hampel filter (5 robust standard deviations from the hourly median) flags 293 of 29,038 genuine readings (1.0%). They are rises followed by smooth decays, genuine releases rather than glitches, and replacing them in the training data worsens the test MAE (8.11 to 8.22 ppm). They were kept.
+
+**Final design.** The tuned SVR is selected: it is the most accurate on every validation measure, and its cost is irrelevant at a 15-minute decision interval. Linear Regression remains the fallback where interpretability or a tiny model matters: 0.9 ppm less accurate, with 36 operations per forecast and coefficients an engineer can read.
+
+---
+
+## 6. Limitations and Lessons Learned
+
+**Limitations.**
+
+- **No model anticipates sudden rises** (Section 5.2). The forecast suits gradual, early ventilation changes, not a replacement for the BMS's reactive alarm.
+- **The main sensor has no documented room.** Sensor 0326 is not in the location spreadsheet. A data-driven search correlated each zone's occupancy with the 15-minute *change* in each sensor's readings at lags up to ±1 hour (levels would correlate for every room through the shared daily cycle). For CO₂, $|r| \le 0.03$ for every zone with overlapping data (Appendix C). Temperature reaches $r$ = 0.27 but rises 45–60 minutes *before* occupancy: a building-wide HVAC warm-up, not shared occupants. This explains RQ2.
+- **Three of five sensors contain no genuine readings**; they re-send one stale packet about every 11 minutes (e.g. 666 ppm in all 21,363 rows of sensor 0227). This was found by comparing each reading's timestamp with the server receive time and is not documented in the dataset.
+- **80% of candidate rows are dropped** because of the 636-day outage, and only 25 test rows exceed 550 ppm.
+- **Accuracy is moderate** ($R^2$ about 0.37): two thirds of the variance comes from factors not in the data (doors, windows, HVAC switching, the room's own occupants).
+- **One room, one building, seven months**; models must be retrained per room.
+
+**Lessons learned.**
+
+1. **Audit the raw data before modelling.** The three "frozen" sensors, the outage and the missing room location were all found by inspecting timestamps, not by the models.
+2. **Averages can hide the failure that matters.** A better MAE came from smoothing ordinary noise; the spikes an early warning exists for were not predicted at all.
+3. **Never let the test set choose the model.** The first comparison did; time-series cross-validation inside the training period fixed it, and the selected model was confirmed only once on the test data.
+4. **Check claims against the data.** Two stated justifications (the 15-minute sensor cadence and $\varepsilon$ matched to sensor noise) were false when measured, and an assumed 30-minute time constant was really about 15 minutes.
+5. **Numerical methods fail at the data, not the formula.** The trapezoidal rule was correct, but applied across an outage it inflated exposure fourfold.
+6. **Report negative results.** Occupancy did not help, pooling did not help and models did not transfer; each answer narrows what a real deployment would need: per-room training and occupancy sensing in the forecast room.
+
+---
+
+## 7. AI Use and Reflection
+
+**Tools.** Claude Code (Anthropic), used in a cloud session with access to the repository, and the Claude chat interface (claude.ai), used to read the brief, plan and review.
+
+**What AI was used for, and approximate contribution.** Claude wrote most of the Python code (an estimated 80–90% of lines), ran the analyses, generated the figures and API documentation, and drafted most of the report prose, including the revision of every section against the brief and rubric. My contribution was the engineering direction, the decisions listed below, checking results and editing. I used AI for implementation and drafting because it is fast at boilerplate code, plotting and restructuring text, which left my time for the engineering judgements.
+
+**Decisions that remained mine.** Choosing CO₂ forecasting over occupancy classification; choosing the sensor and requiring the Bureau of Meteorology check before trusting it; testing occupancy as a feature rather than assuming its value; taking the teaching team's advice to use every sensor's valid intervals; deciding to report the non-significant pooling result and the negative transfer result as they are; and accepting the final model and its stated limitations.
+
+**How AI output was checked.** Every number in this report was traced to an output file in `reports/` produced by a script that reruns from a fresh clone; I read the code paths behind key results; the numerical code is covered by unit tests with known answers (Section 4.1); and claims were rechecked against the raw data.
+
+**Errors and unhelpful output from AI.** The first integration code bridged the 636-day outage and inflated exposure fourfold; I required an explanation when the result looked wrong, which exposed it. An AI clean-up deleted a module and its tests, later restored. AI-written text stated two justifications that measurement showed false (the 15-minute cadence and the $\varepsilon$ setting), described the residual plot backwards, and misreported the integration discrepancy as ninefold. The original model comparison selected SVR on test data, a methodological flaw the AI did not flag until the work was audited. AI also added itself as a co-author on a commit against my instruction, and once said the processed data was committed when it was not. Each was found by checking output against the data, the code or the repository.
+
+**Effect on understanding and workflow.** AI made it possible to run far more analysis than I could have coded alone (cross-validation, bootstrap intervals, profiling, the decay fit), and the errors above taught me to treat every AI statement as a claim to verify rather than a result. I can explain every method and number in this report; the presentation is where that is tested.
+
+---
+
+## References
+
+- MMA3001 Project Brief, Monash University, 2026.
+- MMA3001 Project Datasets document, Monash University, 2026. Dataset 2: Monash Smart Infrastructure Occupancy and Environmental Data.
+- MMA3001 Notes, Week 5.1–5.6: Regression methods and evaluation. Monash University, 2026.
+- MMA3001 Notes, Week 6: Numerical Integration (trapezoidal, Simpson's, Richardson extrapolation). Monash University, 2026.
+- ACGIH. Carbon dioxide: TLV-TWA 5000 ppm. American Conference of Governmental Industrial Hygienists; also OSHA Permissible Exposure Limit, 29 CFR 1910.1000 Table Z-1 (5000 ppm, 8-hour TWA).
+- ASHRAE (2022a). Standard 62.1: Ventilation and Acceptable Indoor Air Quality. American Society of Heating, Refrigerating and Air-Conditioning Engineers.
+- ASHRAE (2022b). Position Document on Indoor Carbon Dioxide. American Society of Heating, Refrigerating and Air-Conditioning Engineers.
+- Bureau of Meteorology. Daily Weather Observations, Moorabbin Airport (station 086077). http://www.bom.gov.au/climate/dwo/
+- Emmerich, S. J. & Persily, A. K. (2001). State-of-the-Art Review of CO₂ Demand Controlled Ventilation Technology and Application. NISTIR 6729, National Institute of Standards and Technology.
+- Hampel, F. R. (1974). The influence curve and its role in robust estimation. *Journal of the American Statistical Association*, 69(346), 383–393.
+- Künsch, H. R. (1989). The jackknife and the bootstrap for general stationary observations. *Annals of Statistics*, 17(3), 1217–1241.
+- Pedregosa, F. et al. (2011). Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research*, 12, 2825–2830. Documentation for LinearRegression, DecisionTreeRegressor, SVR, MLPRegressor, GridSearchCV and TimeSeriesSplit: https://scikit-learn.org/
+- Persily, A. & de Jonge, L. (2017). Carbon dioxide generation rates for building occupants. *Indoor Air*, 27(5), 868–879.
+- Pérez-Lombard, L., Ortiz, J. & Pout, C. (2008). A review on buildings energy consumption information. *Energy and Buildings*, 40(3), 394–398.
+- Satish, U. et al. (2012). Is CO₂ an indoor pollutant? Direct effects of low-to-moderate CO₂ concentrations on human decision-making performance. *Environmental Health Perspectives*, 120(12), 1671–1677.
+
+## Appendix A: Test-Period Time Series
+
+![Ground truth and all four models (original settings): full test period as daily means (top) and a five-day window at 15-minute resolution (bottom). Every model follows a spike one step late; the original Decision Tree also predicts spikes that never happened.](chart11_predictions_timeseries.png){width=5.5in}
+
+![Rows used per week for sensor 0326, split chronologically at 11 March 2026; the record before September 2025 contains no genuine readings.](chart14_train_test_split.png){width=6.3in}
+
+## Appendix B: Numerical Integration Cross-Check
+
+Cumulative CO₂ exposure on a 41-hour gap-free window (1–3 October 2025), sensor 0326 (`scripts/co2_integration_analysis.py`).
+
+| Bin size | Points | Trapezoidal (ppm·h) | Simpson's (ppm·h) | Relative difference |
+|---|---|---|---|---|
+| 15 min | 163 | 17,817.3 | 17,829.9 | 0.071% |
+| 30 min | 83 | 18,019.8 | 18,019.9 | 0.001% |
+| 60 min | 41 | 17,583.8 | 17,571.8 | 0.068% |
+
+The two rules agree within 0.1% at each spacing. The differences *between* spacings come from averaging the readings into different bins, not from integration error, so this is a consistency check; the order of accuracy is verified separately against an exact integral (Section 4.1).
+
+## Appendix C: Sensor Audit
 
 | Sensor (last 4 digits) | Raw rows | Distinct readings | Stale re-sent rows | Usable intervals | Hours | Usable rows |
 |---|---|---|---|---|---|---|
@@ -199,136 +336,10 @@ Rather than accepting or rejecting whole sensors, the unbroken-interval rule (Se
 | 0227 | 21,363 | 1 | 21,363 | 0 | 0 | 0 |
 | 0777 | 10,926 | 1 | 10,926 | 0 | 0 | 0 |
 
-![Usable unbroken intervals (green) and re-transmitted stale packets (grey) for each sensor](chart15_sensor_intervals.png){width=5.2in}
-
-Three sensors never produce more than two distinct readings, so no interval can be formed. Sensor `6012002000869` (room G.38, the only documented sensor) has genuine readings from 29 February to 13 June 2024, giving 7,781 more rows. Both experiments below exclude occupancy (it adds nothing, Section 4) and include a naive *persistence* forecast (next CO₂ = current CO₂) as the floor a useful model must beat.
-
-**Experiment A: pooled training.** Train on sensor `6012002000326`'s training period plus all of `6012002000869` (2024, before the cutoff); test on the unchanged `6012002000326` test period.
-
-| Method | MAE, 0326 only (ppm) | MAE, pooled (ppm) | R², 0326 only | R², pooled |
-|---|---|---|---|---|
-| Persistence | 9.823 | 9.823 | 0.161 | 0.161 |
-| Linear Regression | 8.969 | 9.138 | 0.362 | 0.324 |
-| Decision Tree | 9.053 | 8.687 | 0.258 | 0.315 |
-| **SVR** | 8.295 | **8.135** | 0.349 | 0.373 |
-| Neural Network | 8.865 | 8.897 | 0.375 | 0.381 |
-
-Pooling adds 56% more training data (13,853 to 21,634 rows). SVR improves slightly (MAE 8.30 to 8.14 ppm) and the data-hungry Decision Tree most, but no change is statistically significant: 95% moving-block bootstrap intervals (one-day blocks) on the paired MAE difference all span zero, e.g. SVR +0.16 ppm [−0.07, +0.44]. All models beat persistence (9.82 ppm).
-
-**Experiment B: cross-sensor transfer.** Train on `6012002000326` only and test on the final 20% of `6012002000869`, against a model trained on `6012002000869`'s own earlier data (figure, right).
-
-![MAE for Experiment A (left) and Experiment B (right)](chart16_multi_sensor_results.png){width=5.2in}
-
-Trained on its own room, every model beats persistence (7.75 ppm) and SVR is best (MAE 6.99 ppm, R² 0.78). Trained on the other room, every model is *worse than persistence* (Decision Tree 10.24 ppm). The models learn room-specific behaviour — the level each room settles to and how fast it returns — and the rooms are driven differently: G.38 by occupants, sensor `6012002000326` by the ventilation schedule (Section 4). A forecaster must be trained per room.
-
-## 5. Validation
-
-### 5.1 Train/Test Split
-
-The first 80% of rows (13,608, up to 11 March 2026) were used for training and the final 20% (3,402) for testing. A random split was deliberately avoided: CO₂ is strongly autocorrelated, so randomly placed test points would sit beside near-identical training points, and the score would measure interpolation rather than forecasting an unseen future. The chronological split matches deployment.
-
-![Chronological train/test split over the full sensor history for sensor 6012002000326](chart14_train_test_split.png){width=5.5in}
-
-### 5.2 Evaluation Metrics
-
-**Mean Absolute Error (MAE):**
-
-$$\text{MAE} = \frac{1}{n} \sum_{i=1}^{n} |\hat{y}_i - y_i|$$
-
-The average error in ppm, robust to occasional outliers: an MAE of 8.35 ppm means predictions are on average 8.35 ppm from the true reading.
-
-**Root Mean Square Error (RMSE):**
-
-$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i)^2}$$
-
-The square penalises large errors, so an RMSE well above the MAE signals occasional large errors despite a small typical error.
-
-**Coefficient of Determination (R²):**
-
-$$R^2 = 1 - \frac{\sum_{i=1}^{n}(\hat{y}_i - y_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}$$
-
-The fraction of target variance explained: 1 is perfect, 0 is no better than predicting the mean. The models reach 0.19–0.36, about a third of the variance; the rest comes from factors not in the dataset (HVAC switching, doors, windows, equipment, and this room's occupants).
-
-### 5.3 Sensor Validation Against External Records
-
-The sensor's temperature and humidity were compared with Bureau of Meteorology observations at Moorabbin Airport (station 086077, the nearest official station to Monash Clayton) over 222 overlapping days.
-
-| Variable | Pearson r (sensor vs BOM) |
-|---|---|
-| Temperature | +0.84 |
-| Relative Humidity | +0.65 |
-
-A faulty sensor (stuck reading, frozen clock or noise) would show correlations near zero, so these strong values indicate that sensor `6012002000326` measures real conditions.
-
-### 5.4 Numerical Integration Convergence
-
-The Week 6 trapezoidal and Simpson's rules were implemented from the lecture formulae (not library functions) to compute cumulative CO₂ exposure in ppm·h, and compared at three bin sizes on a 41-hour gap-free window (1–3 October 2025).
-
-| Bin size | Points | Trapezoidal (ppm·h) | Simpson (ppm·h) | Relative difference |
-|---|---|---|---|---|
-| 15 min | 163 | 17,817.3 | 17,829.9 | 0.071 % |
-| 30 min | 83 | 18,019.8 | 18,019.9 | 0.001 % |
-| 60 min | 41 | 17,583.8 | 17,571.8 | 0.068 % |
-
-The methods agree within 0.1% at every bin size, confirming the implementation. The variation between bin sizes reflects the readings sampled at each density, not numerical error.
-
----
-
-## 6. Limitations and Known Failure Modes
-
-**The sensor has no documented room location.** Sensor `6012002000326` is not in the Sensor ID and Locations spreadsheet, so its room and matching occupancy zone are unknown. A data-driven sensor-matching analysis was run instead (`occupancy.sensor_matching`, `scripts/sensor_matching_analysis.py`): for every zone–sensor pair on 15-minute bins, Pearson's $r$ was computed between the zone's occupancy and the *change* in the reading (its first difference), searching lags up to ±4 bins (±1 hour) and keeping the strongest. Changes are used rather than levels because every room follows the same working-day cycle, which would make all pairs look related. CO₂, temperature and humidity were tested (`reports/sensor_matching_results.json`).
+![Usable unbroken intervals (green) and re-sent stale packets (grey) for each sensor](chart15_sensor_intervals.png){width=6.3in}
 
 ![Best-lag correlation between each zone's occupancy and the 15-minute change in each sensor's reading](chart10_zone_matching.png){width=5.2in}
 
-For CO₂, sensor `6012002000326` shows no relationship with any zone ($|r| \le 0.03$ for the four zones with overlapping data), and no sensor exceeds $|r| = 0.06$. Temperature reaches $r = 0.27$, but at lags of −3 to −4 bins: it rises 45–60 minutes *before* occupancy, pointing to a building-wide HVAC warm-up rather than shared occupants. This cannot prove the sensor is outside every zone, but finds no evidence linking it to any.
+## Appendix D: Data Pipeline
 
-**Three of the five sensors contain no genuine readings.** Sensors `6012002000227`, `6012002000777` and `6012002000241` first appeared to have frozen clocks. The server receive time (`createdate`) shows that their rows arrive regularly but are all one stale packet re-sent with the same value (e.g. 666 ppm in all 21,363 rows of `6012002000227`), so no interval can be formed. The usable sensors show the same fault outside their genuine periods. Sensor `6012002000869` has only 3.5 months of genuine data, too little for the main analysis, and is used in Section 4.2. None of this is documented in the dataset description; it was found by inspecting raw timestamps and values.
-
-**Most candidate rows are discarded.** The 636-day gap reduces 84,576 candidate rows to 17,010 (20.1%); imputing across it would fabricate data. Adding a second sensor's intervals (+56% training data) does not measurably improve accuracy (Section 4.2).
-
-**Models do not transfer between rooms.** Trained on one sensor, every model is worse than persistence on another (Section 4.2); each room needs its own training data.
-
-**Predictive accuracy is moderate.** R² of 0.34–0.36 leaves two thirds of the variability to unobserved factors (HVAC switching, windows, doors, the room's own occupants). The model suits use as a trend indicator for early ventilation, not as a precise point forecast.
-
-**Integration must be gap-aware.** Applied naively across the full record, treating the 636-day outage as one step, the trapezoidal rule gives 9.54 million ppm·h; skipping panels whose endpoints are more than 2 hours apart gives 2.31 million ppm·h. The factor of four comes entirely from bridging the outage.
-
----
-
-## 7. AI Use and Critical Reflection
-
-Claude (Claude Code) was used throughout this project for data exploration, Python implementation, analysis, and drafting this report. The following is a straightforward account of how it was used and what I contributed.
-
-**What Claude assisted with:** Setting up the package structure, writing the scikit-learn pipeline code, running the four-model comparison, performing the integration analysis, implementing the sensor-matching analysis (a lagged correlation search, following Keenan Granland's EdStem suggestion to look for a sensor–zone link in the data itself), and producing drafts of this report.
-
-**What I directed and decided:** I chose CO₂ prediction over occupancy classification because it was a better fit for the regression focus of MMA3001 Week 5 and for the structure of the available data. I selected which sensor to use and required external validation before accepting it as reliable. I chose to include occupancy as a feature and test it empirically rather than exclude or include it by assumption. When the cumulative exposure from numerical integration came out about four times too large, I required an explanation before accepting it — this investigation identified the gap-bridging error in the original implementation (Section 6).
-
-**Follow-up after teaching-team feedback:** After discussing the project with the teaching team, I was advised to use the valid time intervals from the other sensors instead of discarding them entirely. I brought this feedback to Claude and asked for it to be applied. Claude proposed and implemented the interval audit, the pooled and cross-sensor experiments and the bootstrap significance check (Section 4.2), and found, by comparing the `createdate` field with each reading's own timestamp, that the "frozen" sensors were re-sending a single stale packet. I approved the experiments and the decision to report the non-significant pooling result and the negative cross-sensor result as they are.
-
-**Repository maintenance:** Claude also restored a module and tests that an earlier cleanup had deleted, regenerated the API documentation and test report, and corrected this report's description of the zone-matching analysis so that it matches the code in `occupancy.sensor_matching`.
-
-**What I verified:** All numerical results in this report were checked against the actual output files (`reports/co2_prediction_results.json`, `reports/multi_sensor_results.json`, `reports/sensor_matching_results.json`, `reports/weekday_weekend_results.json`) before being recorded here. The integration estimates and convergence results come from scripts that can be rerun to reproduce the same outputs.
-
-**Honest acknowledgement:** In extended AI-assisted work, the precise boundary between ideas that originated with me and ideas that emerged from interaction with Claude cannot always be drawn clearly. The engineering framing, scope decisions, sensor selection rationale, and interpretation of results are mine. The implementation and much of the written prose were produced collaboratively.
-
----
-
-## References
-
-- MMA3001 Project Brief, Monash University, 2026.
-- MMA3001 Project Datasets document, Monash University, 2026. Dataset 2: Monash Smart Infrastructure Occupancy and Environmental Data.
-- MMA3001 Notes, Week 5.1–5.6: Regression methods and evaluation. Monash University, 2026.
-- MMA3001 Notes, Week 6: Numerical Integration. Monash University, 2026.
-- ACGIH. Carbon dioxide: TLV-TWA 5000 ppm. American Conference of Governmental Industrial Hygienists; also OSHA Permissible Exposure Limit, 29 CFR 1910.1000 Table Z-1 (5000 ppm, 8-hour TWA).
-- ASHRAE (2022a). Standard 62.1: Ventilation and Acceptable Indoor Air Quality. American Society of Heating, Refrigerating and Air-Conditioning Engineers.
-- ASHRAE (2022b). Position Document on Indoor Carbon Dioxide. American Society of Heating, Refrigerating and Air-Conditioning Engineers.
-- Emmerich, S. J. & Persily, A. K. (2001). State-of-the-Art Review of CO₂ Demand Controlled Ventilation Technology and Application. NISTIR 6729, National Institute of Standards and Technology.
-- Pérez-Lombard, L., Ortiz, J. & Pout, C. (2008). A review on buildings energy consumption information. *Energy and Buildings*, 40(3), 394–398.
-- Persily, A. & de Jonge, L. (2017). Carbon dioxide generation rates for building occupants. *Indoor Air*, 27(5), 868–879.
-- Satish, U. et al. (2012). Is CO₂ an indoor pollutant? Direct effects of low-to-moderate CO₂ concentrations on human decision-making performance. *Environmental Health Perspectives*, 120(12), 1671–1677.
-- Bureau of Meteorology. Daily Weather Observations, Moorabbin Airport (station 086077). http://www.bom.gov.au/climate/dwo/
-- scikit-learn documentation: LinearRegression, DecisionTreeRegressor, SVR, MLPRegressor, StandardScaler, Pipeline. https://scikit-learn.org/
-
-
-## Appendix A: Data Pipeline
-
-![Data pipeline: raw candidate timestamps versus dropped rows versus rows retained for modelling (Section 2.4)](chart_data_pipeline.png){width=3.6in}
+![Data pipeline: candidate timestamps, dropped rows and rows retained for modelling (Section 2.4)](chart_data_pipeline.png){width=3.6in}
