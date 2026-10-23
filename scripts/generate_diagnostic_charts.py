@@ -60,7 +60,7 @@ from occupancy.processed_data import (
 
 OCC_RAW_PATH = Path("data/raw/5occupancySensor_MayToDec2024_9MRows.csv")
 ENV_RAW_PATH = Path("data/raw/5EnvSensor_MayToDec2024_180kRows.csv")
-OUT_DIR = Path("docs/report")
+OUT_DIR = Path("doc/report")
 PRED_CSV_PATH = Path("reports/co2_test_predictions.csv")
 SENSOR_ID = "6012002000326"
 BIN_SIZE = "15min"
@@ -155,7 +155,10 @@ def chart_predictions_timeseries(preds: pd.DataFrame) -> None:
     ax_bot.set_xlabel("Date")
     ax_bot.grid(**GRID_KW)
     ax_bot.xaxis.set_major_formatter(mdates.DateFormatter("%d %b %H:%M"))
-    fig.autofmt_xdate()
+    # Rotate each panel's labels itself: fig.autofmt_xdate() hides the top
+    # panel's dates when panels are stacked.
+    for ax in (ax_top, ax_bot):
+        plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 
     fig.suptitle("Predicted vs. actual CO2 — all four Week 5 regression models", fontsize=15, fontweight="bold", y=0.995)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
@@ -215,16 +218,19 @@ def chart_residuals(preds: pd.DataFrame) -> None:
     plt.close(fig)
 
 
-def chart_train_test_split(co2: pd.Series, cutoff: pd.Timestamp, train_n: int, test_n: int) -> None:
+def chart_train_test_split(table: pd.DataFrame, cutoff: pd.Timestamp) -> None:
+    """Rows actually used per week, so the 636-day gap in genuine data is visible."""
     fig, ax = plt.subplots(figsize=(13, 3.2))
-    co2 = co2.dropna()
-    train_mask = co2.index < cutoff
-    ax.fill_between(co2.index[train_mask], 0, 1, color=MODEL_STYLE["Linear Regression"]["color"], alpha=0.5, step="post", label=f"Training data ({train_n:,} rows)")
-    ax.fill_between(co2.index[~train_mask], 0, 1, color=MODEL_STYLE["Decision Tree Regression"]["color"], alpha=0.6, step="post", label=f"Test data ({test_n:,} rows)")
-    ax.axvline(cutoff, color="#0b0b0b", linestyle="--", linewidth=1.5)
-    ax.set_yticks([])
-    ax.set_ylim(0, 1)
-    ax.set_title("Chronological train / test split — sensor 6012002000326 (random split not used, would leak future information)")
+    times = pd.to_datetime(table["time"])
+    weekly_train = times[times < cutoff].dt.to_period("W").dt.start_time.value_counts().sort_index()
+    weekly_test = times[times >= cutoff].dt.to_period("W").dt.start_time.value_counts().sort_index()
+    ax.bar(weekly_train.index, weekly_train.values, width=6, align="edge",
+           color=MODEL_STYLE["Linear Regression"]["color"], label=f"Training rows ({int(weekly_train.sum()):,})")
+    ax.bar(weekly_test.index, weekly_test.values, width=6, align="edge",
+           color=MODEL_STYLE["Decision Tree Regression"]["color"], label=f"Test rows ({int(weekly_test.sum()):,})")
+    ax.axvline(cutoff.tz_localize(None) if cutoff.tzinfo else cutoff, color="#0b0b0b", linestyle="--", linewidth=1.5)
+    ax.set_ylabel("Rows per week")
+    ax.set_title("Chronological train / test split, sensor 6012002000326: rows used per week (cutoff 11 March 2026)")
     ax.legend(loc="upper left", fontsize=9)
     ax.set_xlabel("Date")
     fig.tight_layout()
@@ -245,7 +251,7 @@ def main() -> None:
     chart_predictions_timeseries(preds)
     chart_predicted_vs_actual(preds)
     chart_residuals(preds)
-    chart_train_test_split(co2, cutoff, len(train), len(preds))
+    chart_train_test_split(table, cutoff)
     print(f"Saved 4 charts -> {OUT_DIR}")
 
 

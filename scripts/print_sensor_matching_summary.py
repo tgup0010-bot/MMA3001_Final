@@ -48,7 +48,7 @@ def main() -> None:
     print(
         "Interpretation: every correlation above is weak (Carbon dioxide is "
         "essentially noise-level, |r| <= 0.06); no zone/sensor pair is strong "
-        "enough to count as a discovered room match. See docs/report/report.md "
+        "enough to count as a discovered room match. See doc/report/report.md "
         "section 7 for the full discussion."
     )
 

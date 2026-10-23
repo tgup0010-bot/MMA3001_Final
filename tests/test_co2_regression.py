@@ -69,3 +69,10 @@ def test_build_co2_supervised_dataset_raises_on_no_overlap():
     occupancy = pd.Series([1.0, 2.0, 3.0], index=idx2)
     with pytest.raises(ValueError):
         build_co2_supervised_dataset(co2, occupancy)
+
+
+def test_selected_pipeline_uses_the_tuned_svr_settings():
+    from occupancy.co2_models import SELECTED_SVR_PARAMS, build_selected_pipeline
+
+    svr = build_selected_pipeline()[-1]
+    assert {k: svr.get_params()[k] for k in SELECTED_SVR_PARAMS} == SELECTED_SVR_PARAMS

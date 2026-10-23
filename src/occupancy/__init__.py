@@ -8,7 +8,7 @@ Also includes Week 6 numerical integration of accumulated CO2 exposure,
 sensor selection (BoM external-weather validation), sensor-matching
 analysis and an unbroken-interval audit of every sensor.
 
-See the project README and ``docs/report`` for the full engineering
+See the project README and ``doc/report`` for the full engineering
 context, validation methodology and results.
 
 Modules:
@@ -16,11 +16,13 @@ Modules:
 - `occupancy.co2_integration` -- Newton-Cotes numerical integration of CO2 concentration over time.
 - `occupancy.co2_models` -- the four regression methods taught in MMA3001 Week 5, applied to CO2 prediction.
 - `occupancy.co2_regression` -- predict CO2 concentration from its own history and building occupancy.
+- `occupancy.data_quality` -- Hampel outlier screening and the ventilation rate from CO2 release decays.
 - `occupancy.data_loading` -- loading and basic validation of the raw occupancy sensor log.
 - `occupancy.env_sensors` -- loading and tidying of the raw environmental sensor log.
 - `occupancy.evaluation` -- chronological train/test splitting and prediction-quality metrics.
 - `occupancy.external_weather` -- loading of real Bureau of Meteorology daily weather observations.
 - `occupancy.input_validation` -- rejects invalid forecast inputs and flags extrapolation beyond the training range.
+- `occupancy.performance` -- repeated timing, memory, model size and FLOP estimates for the models.
 - `occupancy.preprocessing` -- convert the occupancy event log into a regular per-room time grid.
 - `occupancy.processed_data` -- compact processed copies of the raw data, committed so the project runs from a clone.
 - `occupancy.rooms` -- friendly labels for the anonymous occupancy zone identifiers.

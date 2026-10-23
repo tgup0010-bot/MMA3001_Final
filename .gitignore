@@ -16,7 +16,7 @@ venv/
 env/
 
 # --- Generated docs / reports ---
-# Note: docs/api/ (pdoc HTML output) IS committed -- the brief requires
+# Note: doc/api/ (pdoc HTML output) IS committed -- the brief requires
 # HTML documentation to be present in the repo, not just reproducible.
 *.pyc
 
