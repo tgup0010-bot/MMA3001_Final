@@ -114,9 +114,9 @@ def _add_calendar_features(index: pd.DatetimeIndex) -> pd.DataFrame:
         {
             "hour_sin": np.sin(2 * np.pi * hour_frac / 24),
             "hour_cos": np.cos(2 * np.pi * hour_frac / 24),
-            "dow_sin": np.sin(2 * np.pi * index.dayofweek / 7),
-            "dow_cos": np.cos(2 * np.pi * index.dayofweek / 7),
-            "is_weekend": (index.dayofweek >= 5).astype(float),
+            "dow_sin": np.sin(2 * np.pi * index.day_of_week / 7),
+            "dow_cos": np.cos(2 * np.pi * index.day_of_week / 7),
+            "is_weekend": (index.day_of_week >= 5).astype(float),
         },
         index=index,
     )

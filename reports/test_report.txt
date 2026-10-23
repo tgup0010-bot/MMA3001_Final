@@ -99,16 +99,6 @@ tests/test_weather_comparison.py::test_compare_to_bom_detects_a_real_relationshi
 tests/test_weather_comparison.py::test_compare_to_bom_returns_nan_with_insufficient_overlap PASSED [ 98%]
 tests/test_weather_comparison.py::test_compare_to_bom_only_uses_overlapping_dates PASSED [100%]
 
-=============================== warnings summary ===============================
-tests/test_performance.py::test_mlp_flops_count_every_weight_and_bias
-  /usr/local/lib/python3.13/dist-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (50) reached and the optimization hasn't converged yet.
-    warnings.warn(
-
-tests/test_weather_comparison.py::test_compare_to_bom_only_uses_overlapping_dates
-  /usr/local/lib/python3.13/dist-packages/numpy/lib/_function_base_impl.py:3036: RuntimeWarning: invalid value encountered in divide
-    c /= stddev[:, None]
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 ----- generated xml file: ./reports/test_report.xml -----
 - Generated html report: file://./reports/test_report.html -
-======================== 90 passed, 2 warnings in 2.86s ========================
+============================== 90 passed in 2.75s ==============================

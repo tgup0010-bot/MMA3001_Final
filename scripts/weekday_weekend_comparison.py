@@ -39,7 +39,7 @@ def main() -> None:
     for sensorid, (start, end) in SENSORS.items():
         co2 = co2_series(env_long, sensorid, BIN_SIZE).dropna()
         co2 = co2[(co2.index >= pd.Timestamp(start, tz=co2.index.tz)) & (co2.index < pd.Timestamp(end, tz=co2.index.tz))]
-        weekend = co2.index.dayofweek >= 5
+        weekend = co2.index.day_of_week >= 5
         working = (co2.index.hour >= WORKING_HOURS[0]) & (co2.index.hour < WORKING_HOURS[1])
         weekday_profile = co2[~weekend].groupby(co2[~weekend].index.hour).mean()
         results[sensorid] = {

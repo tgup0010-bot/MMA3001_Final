@@ -80,7 +80,12 @@ def compare_to_bom(
 
     # A faulty sensor (stuck value, frozen clock, noise) gives r near zero, so
     # a clearly positive r is evidence the sensor measures real conditions.
-    corr = aligned["indoor"].corr(aligned["outdoor"])
+    # A constant series has no variance, so Pearson's r is undefined (0/0):
+    # report NaN explicitly rather than let numpy warn about the division.
+    if aligned["indoor"].std() == 0 or aligned["outdoor"].std() == 0:
+        corr = float("nan")
+    else:
+        corr = aligned["indoor"].corr(aligned["outdoor"])
     return {
         "correlation": corr,
         "n_days": len(aligned),

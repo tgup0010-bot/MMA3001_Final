@@ -39,9 +39,7 @@ def test_lagged_correlation_detects_a_genuine_co2_response():
 
 def test_lagged_correlation_is_weak_for_unrelated_series():
     occupied = _occupancy_series([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
-    unrelated = pd.Series([10, 20, 10, 20, 10, 20, 10, 20, 10, 20], index=occupied.index)
-    # A perfectly anti-correlated-with-itself square wave that never moves
-    # in step with occupancy transitions: use a flat, noise-only signal.
+    # A flat, noise-only signal that never moves in step with occupancy.
     flat_noise = pd.Series(
         [5.0, 5.1, 4.9, 5.0, 5.2, 4.8, 5.0, 5.1, 4.9, 5.0], index=occupied.index
     )

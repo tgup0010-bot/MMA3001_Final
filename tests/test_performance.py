@@ -34,6 +34,7 @@ def test_svr_flops_scale_with_support_vectors():
     assert prediction_flops(model, 3) == 6 + n_sv * (9 + EXP_FLOPS + 2)
 
 
+@pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceWarning")  # 50 iterations is deliberate: only the layer sizes matter here
 def test_mlp_flops_count_every_weight_and_bias():
     model = build_neural_network_regression_pipeline(hidden_layer_sizes=(4,), max_iter=50).fit(X, Y)
     # scaling 6; layer 3->4: 2*3*4+4 = 28; layer 4->1: 2*4+1 = 9; ReLU 4

@@ -7,6 +7,7 @@ from network access and file parsing.
 
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -75,3 +76,4 @@ def test_compare_to_bom_only_uses_overlapping_dates():
 
     result = compare_to_bom(indoor_daily, bom_df, "temp_9am_c", min_overlap_days=5)
     assert result["n_days"] == 10
+    assert np.isnan(result["correlation"])  # constant series: r undefined, not an error
