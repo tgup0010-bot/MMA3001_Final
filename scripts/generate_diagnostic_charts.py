@@ -102,6 +102,7 @@ plt.rcParams.update(
 
 
 def load_supervised_table() -> pd.DataFrame:
+    """Build the same supervised table as co2_prediction_experiment.py; returns ``(table, co2)``."""
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     occ_resampled = resampled_occupancy_raw_or_processed(OCC_RAW_PATH, BIN_SIZE)
     occupancy = building_occupancy_series(occ_resampled)
@@ -112,10 +113,18 @@ def load_supervised_table() -> pd.DataFrame:
 
 
 def fit_and_predict(table: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp]:
+    """Fit the four models (original settings) and keep every test-row prediction.
+
+    Returns:
+        ``(train rows, predictions table, cutoff)``; the predictions table has
+        ``time``, ``actual`` and one column per model.
+    """
     feature_cols = list(NUMERIC_FEATURES_WITH_OCCUPANCY)
     train, test, cutoff = chronological_split(table, time_col="time", train_frac=0.8)
     print(f"cutoff={cutoff}  train={len(train):,}  test={len(test):,}")
 
+    # Row-level predictions are what the diagnostic plots need; the
+    # experiment script only saved aggregate metrics.
     preds = pd.DataFrame({"time": test["time"].values, "actual": test["target"].values})
     for name, builder in MODEL_BUILDERS.items():
         pipeline = builder()
@@ -128,6 +137,7 @@ def fit_and_predict(table: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd
 
 
 def chart_predictions_timeseries(preds: pd.DataFrame) -> None:
+    """Chart 11: the whole test period as daily means (top) and a five-day window (bottom)."""
     preds = preds.set_index(pd.to_datetime(preds["time"]))
     fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[1, 1.2])
 
@@ -199,10 +209,13 @@ def chart_spike_window(preds: pd.DataFrame) -> None:
 
 
 def chart_predicted_vs_actual(preds: pd.DataFrame) -> None:
+    """Chart 12: predicted vs actual CO2, one panel per model, with the y = x line."""
     fig, axes = plt.subplots(1, 4, figsize=(16, 4.6), sharex=True, sharey=True)
     lo = min(preds["actual"].min(), *(preds[m].min() for m in MODEL_STYLE))
     hi = max(preds["actual"].max(), *(preds[m].max() for m in MODEL_STYLE))
     pad = (hi - lo) * 0.03
+    # Shared limits and equal aspect, so the four panels compare directly and
+    # points on the dashed y = x line are perfect predictions.
 
     for ax, (name, style) in zip(axes.flat, MODEL_STYLE.items()):
         ax.plot([lo - pad, hi + pad], [lo - pad, hi + pad], color="#898781", linestyle="--", linewidth=1.2, label="y = x (perfect)")
@@ -228,9 +241,12 @@ def chart_predicted_vs_actual(preds: pd.DataFrame) -> None:
 
 
 def chart_residuals(preds: pd.DataFrame) -> None:
+    """Chart 13: residual (predicted minus actual) against the prediction, per model."""
     fig, axes = plt.subplots(1, 4, figsize=(16, 4.2), sharex=True, sharey=True)
 
     for ax, (name, style) in zip(axes.flat, MODEL_STYLE.items()):
+        # Positive = over-prediction. A well-behaved model scatters evenly
+        # around zero at every predicted level.
         residual = preds[name] - preds["actual"]
         ax.axhline(0, color="#898781", linestyle="--", linewidth=1.2)
         ax.scatter(
@@ -254,6 +270,7 @@ def chart_train_test_split(table: pd.DataFrame, cutoff: pd.Timestamp) -> None:
     """Rows actually used per week, so the 636-day gap in genuine data is visible."""
     fig, ax = plt.subplots(figsize=(13, 3.2))
     times = pd.to_datetime(table["time"])
+    # Count complete rows per calendar week, separately either side of the cutoff.
     weekly_train = times[times < cutoff].dt.to_period("W").dt.start_time.value_counts().sort_index()
     weekly_test = times[times >= cutoff].dt.to_period("W").dt.start_time.value_counts().sort_index()
     ax.bar(weekly_train.index, weekly_train.values, width=6, align="edge",
@@ -271,6 +288,7 @@ def chart_train_test_split(table: pd.DataFrame, cutoff: pd.Timestamp) -> None:
 
 
 def main() -> None:
+    """Refit the four models, save row-level predictions and draw charts 11-14."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     PRED_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
 

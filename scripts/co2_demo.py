@@ -1,11 +1,10 @@
 """Live demo: replay real CO2 history, then predict CO2 for scenarios you type in.
 
-Mirrors scripts/demo.py's structure for the occupancy model, but for the
-CO2 regression task (occupancy.co2_regression / occupancy.co2_models).
-Trains the best-performing model (SVR, per
-reports/co2_prediction_results.json) fresh each run -- fast enough
-(a few seconds) on this dataset's size that a saved model file isn't
-needed.
+Trains the selected model (tuned SVR, chosen by time-series
+cross-validation in scripts/optimisation_and_performance.py; report
+Section 5.4) fresh each run -- fast enough (a few seconds) on this
+dataset's size that a saved model file isn't needed. Invalid inputs are
+rejected, and inputs outside the training range are flagged.
 
 Usage:
     python scripts/co2_demo.py
@@ -41,7 +40,13 @@ DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sun
 
 
 def load_and_train():
-    print("Loading data and training the selected model (tuned SVR, report Section 6)...")
+    """Build the supervised table, train the selected SVR on the training period.
+
+    Returns:
+        ``(pipeline, feature columns, test rows, training ranges)``; the ranges
+        are used to flag extrapolation in the interactive part.
+    """
+    print("Loading data and training the selected model (tuned SVR, report Section 5.4)...")
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     occ_resampled = resampled_occupancy_raw_or_processed(OCC_RAW_PATH, BIN_SIZE)
     occupancy = building_occupancy_series(occ_resampled)
@@ -49,6 +54,8 @@ def load_and_train():
     table, _ = build_co2_supervised_dataset(co2, occupancy, rolling_window=4)
 
     x_cols = list(NUMERIC_FEATURES_WITH_OCCUPANCY)
+    # Same chronological 80/20 split as the report, so the replayed test rows
+    # were never seen during training.
     train, test, cutoff = chronological_split(table, time_col="time", train_frac=0.8)
 
     pipeline = build_selected_pipeline()
@@ -58,17 +65,19 @@ def load_and_train():
 
 
 def replay_real_examples(pipeline, x_cols, test: pd.DataFrame, n: int = 12) -> None:
+    """Predict ``n`` random test rows and print each prediction beside the truth."""
     print("=" * 76)
     print("PART 1 -- Replaying real examples from the test set")
     print("(these 15-minute intervals were never seen during training)")
     print("=" * 76)
 
+    # Fixed seed so the demo shows the same rows every run.
     sample = test.sample(n=n, random_state=7).sort_values("time")
     pred = pipeline.predict(sample[x_cols])
 
     for (_, row), p in zip(sample.iterrows(), pred):
         actual = row["target"]
-        error = p - actual
+        error = p - actual  # positive = over-prediction
         print(
             f"  {row['time']:%a %d-%b %H:%M}  "
             f"CO2 now={row['co2_now']:6.1f}ppm  occupancy={row['building_occupancy']:.0f}/5  "
@@ -83,6 +92,9 @@ def replay_real_examples(pipeline, x_cols, test: pd.DataFrame, n: int = 12) -> N
 
 def _build_query_row(x_cols: list[str], *, co2_now: float, co2_lag1: float,
                       rolling_mean: float, occupancy: float, hour: int, dow: int) -> pd.DataFrame:
+    """Turn a typed-in scenario into one row with the model's nine features."""
+    # Hour and day are encoded on a circle exactly as in training
+    # (occupancy.co2_regression), so 23:00 sits next to 00:00.
     row = {
         "co2_now": co2_now,
         "co2_lag1": co2_lag1,
@@ -110,6 +122,7 @@ def _ask_number(prompt: str, default: float | None = None) -> float:
 
 
 def interactive_loop(pipeline, x_cols: list[str], ranges: dict[str, tuple[float, float]]) -> None:
+    """Ask for scenarios until the user quits, validating each before predicting."""
     print("=" * 76)
     print("PART 2 -- Try your own scenario")
     print("=" * 76)
@@ -131,7 +144,7 @@ def interactive_loop(pipeline, x_cols: list[str], ranges: dict[str, tuple[float,
         occupancy = _ask_number("How many of the 5 occupancy zones are occupied right now, 0-5: ", 0.0)
         hour = _ask_number("Hour of day right now, 0-23 (e.g. 14 for 2pm): ")
         print("Days: " + ", ".join(f"{i + 1}={d}" for i, d in enumerate(DAYS)))
-        dow = _ask_number("Day of week, 1-7: ") - 1
+        dow = _ask_number("Day of week, 1-7: ") - 1  # model uses Monday = 0
 
         # Invalid inputs are refused rather than predicted from: the model
         # would happily return a number for negative CO2 or hour 25.
@@ -151,6 +164,8 @@ def interactive_loop(pipeline, x_cols: list[str], ranges: dict[str, tuple[float,
             occupancy=occupancy, hour=hour, dow=dow,
         )
         predicted = pipeline.predict(query)[0]
+        # Valid but outside the training data: still predicted, but flagged,
+        # because the model has not learned how CO2 behaves there.
         warnings = extrapolation_warnings(
             {"co2_now": co2_now, "co2_lag1": co2_lag1, "co2_rolling_1h": rolling_mean}, ranges
         )
@@ -166,6 +181,7 @@ def interactive_loop(pipeline, x_cols: list[str], ranges: dict[str, tuple[float,
 
 
 def main() -> None:
+    """Train the model, replay real test rows, then take typed-in scenarios."""
     pipeline, x_cols, test, ranges = load_and_train()
     replay_real_examples(pipeline, x_cols, test)
     try:

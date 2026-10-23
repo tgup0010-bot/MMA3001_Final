@@ -30,17 +30,24 @@ SENSORS = {
     "6012002000326": ("2025-09-07", "2026-04-23"),
     "6012002000869": ("2024-02-29", "2024-06-14"),
 }
+#: Working hours (start inclusive, end exclusive) for the like-for-like
+#: weekday vs weekend comparison: all-hours means mix in the night.
 WORKING_HOURS = (9, 17)
 
 
 def main() -> None:
+    """Compute and save each sensor's weekday/weekend means and daily profile."""
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     results = {}
     for sensorid, (start, end) in SENSORS.items():
         co2 = co2_series(env_long, sensorid, BIN_SIZE).dropna()
+        # Keep only the genuine-reading period; outside it the sensor
+        # re-sends stale packets, which would distort both means.
         co2 = co2[(co2.index >= pd.Timestamp(start, tz=co2.index.tz)) & (co2.index < pd.Timestamp(end, tz=co2.index.tz))]
-        weekend = co2.index.day_of_week >= 5
+        weekend = co2.index.day_of_week >= 5  # Saturday = 5, Sunday = 6
         working = (co2.index.hour >= WORKING_HOURS[0]) & (co2.index.hour < WORKING_HOURS[1])
+        # Mean CO2 for each hour of a weekday: an occupied room should peak
+        # during working hours, not before people arrive.
         weekday_profile = co2[~weekend].groupby(co2[~weekend].index.hour).mean()
         results[sensorid] = {
             "period": [start, end],

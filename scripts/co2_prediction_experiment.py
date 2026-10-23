@@ -55,6 +55,7 @@ MODEL_BUILDERS = {
 
 
 def timed(label: str, fn, *args, **kwargs):
+    """Call ``fn`` and print how long it took; returns ``(result, seconds)``."""
     start = time.perf_counter()
     result = fn(*args, **kwargs)
     elapsed = time.perf_counter() - start
@@ -63,12 +64,26 @@ def timed(label: str, fn, *args, **kwargs):
 
 
 def run_feature_set(table: pd.DataFrame, feature_cols: list[str], label: str) -> dict:
+    """Fit all four models on one feature set and score them on the test period.
+
+    Args:
+        table: Supervised table from ``build_co2_supervised_dataset``.
+        feature_cols: Input columns to give the models.
+        label: Name of the feature set, for printing.
+
+    Returns:
+        Test metrics (MAE, RMSE, R2) and fit/predict times per model.
+    """
+    # Chronological, not random: the model may only learn from the past, and a
+    # random split would put near-identical neighbouring rows in both sets.
     train, test, cutoff = chronological_split(table, time_col="time", train_frac=0.8)
     print(f"\n--- Feature set: {label} ({len(feature_cols)} features) ---")
     print(f"cutoff={cutoff}  train={len(train):,}  test={len(test):,}")
 
     results = {}
     for name, builder in MODEL_BUILDERS.items():
+        # Original (hand-set) settings; tuning is done separately in
+        # optimisation_and_performance.py, on the training period only.
         pipeline = builder()
         _, fit_t = timed(f"fit {name}", pipeline.fit, train[feature_cols], train["target"])
         start = time.perf_counter()
@@ -86,16 +101,21 @@ def run_feature_set(table: pd.DataFrame, feature_cols: list[str], label: str) ->
 
 
 def main() -> None:
+    """Run the baseline comparison with and without occupancy and save the results."""
     env_long, t = timed("load env readings", env_readings_raw_or_processed, ENV_RAW_PATH)
     occ_resampled, t = timed(
         "load + resample occupancy", resampled_occupancy_raw_or_processed, OCC_RAW_PATH, BIN_SIZE
     )
+    # Both series on the same 15-minute grid, so each row lines up in time.
     occupancy = building_occupancy_series(occ_resampled)
     co2 = co2_series(env_long, SENSOR_ID, BIN_SIZE)
 
+    # rolling_window=4 bins = the last hour; rows with any gap are dropped.
     table, info = build_co2_supervised_dataset(co2, occupancy, rolling_window=4)
     print(f"\nsupervised table: {info}")
 
+    # RQ2: the same rows with and without the occupancy feature, so any
+    # difference in error is due to occupancy alone.
     with_occ = run_feature_set(table, list(NUMERIC_FEATURES_WITH_OCCUPANCY), "with occupancy")
     without_occ = run_feature_set(
         table, list(NUMERIC_FEATURES_WITHOUT_OCCUPANCY), "without occupancy"
@@ -106,9 +126,12 @@ def main() -> None:
         r2_with = with_occ[name]["r2"]
         r2_without = without_occ[name]["r2"]
         delta = r2_with - r2_without
+        # Changes under 0.001 in R2 are treated as no difference (noise level).
         verdict = "helps" if delta > 0.001 else ("hurts" if delta < -0.001 else "no difference")
         print(f"  {name:28} R2 with={r2_with:+.4f}  without={r2_without:+.4f}  delta={delta:+.4f}  ({verdict})")
 
+    # Lowest test MAE among the original settings. This choice used the test
+    # set; the final model is selected by cross-validation instead (report 5.4).
     best_model = min(with_occ, key=lambda n: with_occ[n]["mae"])
     print(f"\nBest model (lowest MAE, with occupancy): {best_model}")
 

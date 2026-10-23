@@ -53,6 +53,7 @@ def fetch_month(month: str) -> bool:
 
 
 def main() -> None:
+    """Download each month's BoM observations that are still available, and report any missing."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     saved, missing = [], []
     for month in MONTHS:

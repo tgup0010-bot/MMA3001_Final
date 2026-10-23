@@ -1,7 +1,7 @@
 """Attempt to link environmental sensors to occupancy zones by data, not metadata.
 
 The supplied location spreadsheet cannot map most occupancy zones to the
-environmental sensors (see README, Known data limitations). This script
+environmental sensors (see the report, Section 6). This script
 tests the alternative Keenan Granland suggested on the EdStem forum
 (thread #81, "Confirming scope"): rather than assume a room correspondence, look for
 one in the data itself, by correlating each zone's occupancy pattern
@@ -38,6 +38,7 @@ VARIABLES_TESTED = ("Carbon dioxide", "Temperature", "Humidity")
 
 
 def timed(label: str, fn, *args, **kwargs):
+    """Call ``fn`` and print how long it took; returns ``(result, seconds)``."""
     start = time.perf_counter()
     result = fn(*args, **kwargs)
     elapsed = time.perf_counter() - start
@@ -46,6 +47,7 @@ def timed(label: str, fn, *args, **kwargs):
 
 
 def main() -> None:
+    """Correlate every zone with every sensor for each variable and save the matrices."""
     timings: dict[str, float] = {}
 
     env_long, t = timed("load env readings", env_readings_raw_or_processed, ENV_RAW_PATH)
@@ -60,6 +62,8 @@ def main() -> None:
     print(f"  zones={len(rooms)}: {[room_label(r) for r in rooms]}")
 
     all_results = {}
+    # CO2 is the main test; temperature and humidity are checked too, because
+    # a shared HVAC schedule could link a sensor to a zone without shared people.
     for variable in VARIABLES_TESTED:
         print(f"\n=== Testing variable: {variable} ===")
         (matrix, detail), t = timed(
@@ -72,9 +76,12 @@ def main() -> None:
         )
         timings[f"correlate_{variable}"] = t
 
+        # Human-readable labels for printing only; the JSON keeps the raw ids.
         display = matrix.rename(index=room_label, columns=sensor_label)
         print(display.to_string(float_format=lambda x: f"{x:+.3f}"))
 
+        # For each zone, the sensor (and lag) with the strongest correlation.
+        # Strongest does not mean strong: |r| must be judged as well.
         summary = best_match_per_room(matrix, detail)
         summary_display = summary.copy()
         summary_display.index = [room_label(r) for r in summary_display.index]

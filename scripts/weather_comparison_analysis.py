@@ -43,6 +43,7 @@ COMPARISONS = [
 
 
 def main() -> None:
+    """Compare every sensor with BoM weather, save the results and draw chart 18."""
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     bom_df = load_bom_weather(bom_dir_raw_or_processed(BOM_DIR))
     print(
@@ -51,6 +52,8 @@ def main() -> None:
     )
 
     all_results: dict = {}
+    # Every sensor is checked, not just 0326: sensors with no genuine readings
+    # in BoM's date range are reported as having no usable overlap.
     for sensorid in sensor_ids(env_long):
         label = sensor_label(sensorid)
         all_results[sensorid] = {}
@@ -58,6 +61,7 @@ def main() -> None:
             try:
                 indoor_daily = daily_indoor_series(env_long, sensorid, variable)
             except Exception:
+                # This sensor never reported this variable: nothing to compare.
                 continue
             result = compare_to_bom(
                 indoor_daily, bom_df, outdoor_col, min_overlap_days=MIN_OVERLAP_DAYS

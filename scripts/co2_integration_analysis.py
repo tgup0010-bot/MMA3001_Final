@@ -49,6 +49,7 @@ MAX_GAP_HOURS = 2.0
 
 
 def main() -> None:
+    """Compute cumulative CO2 exposure with both rules and save the cross-check."""
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
 
     from occupancy.env_sensors import pivot_variable

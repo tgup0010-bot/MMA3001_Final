@@ -44,6 +44,7 @@ MAX_FILE_MB = 50
 
 
 def check_size(path: Path) -> None:
+    """Print the size of a file just written."""
     size_mb = path.stat().st_size / 1e6
     print(f"  wrote {path} ({size_mb:.1f} MB)")
     if size_mb > MAX_FILE_MB:
@@ -51,6 +52,7 @@ def check_size(path: Path) -> None:
 
 
 def main() -> None:
+    """Build every processed data file from the raw files and check each reads back identically."""
     # The read-back checks compare values; check_dtype=False only tolerates a
     # different timestamp resolution (microseconds vs nanoseconds), which
     # does not change any value.

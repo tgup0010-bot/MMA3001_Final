@@ -17,11 +17,11 @@ RESULTS_PATH = Path("reports/sensor_matching_results.json")
 
 
 def main() -> None:
+    """Print each zone's best-matching sensor from the saved results."""
     if not RESULTS_PATH.exists():
         raise SystemExit(
             f"{RESULTS_PATH} not found. Run "
-            "scripts/sensor_matching_analysis.py first (needs the raw CSVs "
-            "in data/raw/)."
+            "scripts/sensor_matching_analysis.py first."
         )
 
     data = json.loads(RESULTS_PATH.read_text(encoding="utf-8"))
@@ -30,6 +30,8 @@ def main() -> None:
 
     for variable, result in data["results"].items():
         print(f"=== {variable} ===")
+        # One line per zone: its best-correlated sensor, r, and the lag at
+        # which that r occurred (positive lag = sensor responds after occupancy).
         for row in result["best_match_per_room"]:
             zone_label = zones.get(row["room"], row["room"])
             sensor_label = (
@@ -38,6 +40,7 @@ def main() -> None:
                 else "(no sensor had enough overlapping data)"
             )
             corr = row["correlation"]
+            # None when no sensor overlapped this zone's data long enough.
             corr_str = f"{corr:+.3f}" if corr is not None else "n/a"
             print(
                 f"  {zone_label:35} best match: {sensor_label:30} "
@@ -48,8 +51,8 @@ def main() -> None:
     print(
         "Interpretation: every correlation above is weak (Carbon dioxide is "
         "essentially noise-level, |r| <= 0.06); no zone/sensor pair is strong "
-        "enough to count as a discovered room match. See doc/report/report.md "
-        "section 7 for the full discussion."
+        "enough to count as a discovered room match. See the report, Section 6 "
+        "and Appendix C, for the full discussion."
     )
 
 

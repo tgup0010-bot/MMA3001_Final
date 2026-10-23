@@ -18,7 +18,7 @@ Steps:
   3. Experiment B -- cross-sensor transfer: train on 0326 only, test on
      sensor 0869. Does a model learned in one room work in another?
 
-Occupancy is excluded throughout: Section 4 of the report shows it adds
+Occupancy is excluded throughout: Section 5.1 of the report shows it adds
 nothing for sensor 0326, and leaving it out keeps the row sets identical
 across experiments. A naive persistence forecast (next CO2 = current CO2)
 is reported alongside the four Week 5 models as a reference floor.
@@ -105,6 +105,7 @@ def receive_times(path: Path) -> pd.DataFrame:
 
 
 def supervised_table(env_long: pd.DataFrame, sensorid: str) -> tuple[pd.DataFrame, dict]:
+    """Supervised table (features + next-bin CO2) for one sensor, tagged with its id."""
     co2 = co2_series(env_long, sensorid, BIN_SIZE)
     # Occupancy is not used here; a placeholder keeps the shared builder's signature.
     placeholder = pd.Series(0.0, index=co2.index, name="building_occupancy")
@@ -114,6 +115,13 @@ def supervised_table(env_long: pd.DataFrame, sensorid: str) -> tuple[pd.DataFram
 
 
 def run(label: str, train: pd.DataFrame, test: pd.DataFrame) -> dict:
+    """Fit all four models on ``train`` and score them and persistence on ``test``.
+
+    Returns:
+        ``(summary, predictions)``: row counts and metrics per model, and each
+        model's test predictions (kept for the bootstrap comparison).
+    """
+    # Persistence needs no training: its forecast is the current reading.
     results = {"Persistence": evaluate_regression_predictions(test["target"], test["co2_now"])}
     predictions = {}
     for name, builder in MODEL_BUILDERS.items():
@@ -127,14 +135,18 @@ def run(label: str, train: pd.DataFrame, test: pd.DataFrame) -> dict:
 
 
 def chart_sensor_intervals(env_long: pd.DataFrame, received: pd.DataFrame, sensors: list[str]) -> None:
+    """Chart 15: each sensor's usable intervals (green) and stale re-sent packets (grey)."""
     fig, ax = plt.subplots(figsize=(13, 4.2))
     for row, sid in enumerate(sensors):
         intervals = find_unbroken_intervals(co2_series(env_long, sid, BIN_SIZE))
+        # An interval must hold a full hour of history plus a target to give any row.
         intervals = intervals[intervals["n_bins"] > ROLLING_WINDOW]
         ax.broken_barh(
             [(s, e - s + pd.Timedelta(BIN_SIZE)) for s, e in zip(intervals["start"], intervals["end"])],
             (row - 0.35, 0.7), color=USABLE_COLOR,
         )
+        # Stale packets are plotted at the time they were received, which shows
+        # how a dead sensor keeps "reporting" long after its last real reading.
         stale = received[(received["sensorid"] == sid) & received["stale"]]["received"].dt.tz_convert(LOCAL_TZ)
         ax.scatter(stale, np.full(len(stale), row), s=2, color=STALE_COLOR, marker="|", alpha=0.5)
     ax.set_yticks(range(len(sensors)), [s[-4:] for s in sensors])
@@ -151,6 +163,7 @@ def chart_sensor_intervals(env_long: pd.DataFrame, received: pd.DataFrame, senso
 
 
 def chart_results(results: dict) -> None:
+    """Chart 16: MAE when pooling sensors (left) and transferring between rooms (right)."""
     models = ["Persistence", *MODEL_BUILDERS]
     short = ["Persistence", "Linear", "Decision Tree", "SVR", "Neural Net"]
     panels = [
@@ -179,22 +192,27 @@ def chart_results(results: dict) -> None:
 
 
 def main() -> None:
+    """Audit every sensor, run the pooling and transfer experiments, save results and charts."""
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     received = receive_times(ENV_RAW_PATH)
     sensors = sorted(env_long["sensorid"].unique())
 
+    # Step 1: how much usable data each sensor really has (Appendix C table).
     audit = interval_audit(env_long, sensors, bin_size=BIN_SIZE, rolling_window=ROLLING_WINDOW)
     stale = received.groupby("sensorid")["stale"].sum().rename("stale_rows")
     audit = audit.merge(stale, left_on="sensorid", right_index=True, how="left")
     print("=== Interval audit ===")
     print(audit.to_string(index=False))
 
+    # Each sensor split chronologically on its own, so each has a later test period.
     t326, info326 = supervised_table(env_long, MAIN_SENSOR)
     t869, info869 = supervised_table(env_long, SECOND_SENSOR)
     tr326, te326, cutoff = chronological_split(t326, time_col="time", train_frac=0.8)
     tr869, te869, cutoff869 = chronological_split(t869, time_col="time", train_frac=0.8)
     pooled = pd.concat([tr326, t869], ignore_index=True)  # all of 0869 (2024) predates the 2026 cutoff
 
+    # Same models and settings in every experiment; only the training and
+    # test rows change, so differences come from the data alone.
     results, preds = {}, {}
     results["baseline_0326"], preds["baseline"] = run("Baseline: train 0326 -> test 0326", tr326, te326)
     results["pooled_0326"], preds["pooled"] = run("A: train 0326 + 0869 -> test 0326", pooled, te326)
@@ -205,6 +223,8 @@ def main() -> None:
     print("\n=== Pooled vs baseline on 0326: MAE improvement, 95% block-bootstrap CI ===")
     significance = {}
     for name in MODEL_BUILDERS:
+        # Paired per-row difference in absolute error (positive = pooling
+        # helped); day-long blocks keep the time correlation of the errors.
         diff = np.abs(preds["baseline"][name] - te326["target"].values) - np.abs(
             preds["pooled"][name] - te326["target"].values
         )

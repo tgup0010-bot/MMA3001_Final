@@ -26,6 +26,8 @@ import numpy as np
 RESULTS_PATH = Path("reports/sensor_matching_results.json")
 OUT_PATH = Path("doc/report/chart10_zone_matching.png")
 VARIABLES = ("Carbon dioxide", "Temperature")
+#: Colour scale runs from -0.3 to +0.3, so the weak correlations found are
+#: still visible; a strong match would saturate the colour.
 COLOR_LIMIT = 0.3
 
 plt.rcParams.update(
@@ -42,20 +44,23 @@ plt.rcParams.update(
 
 
 def main() -> None:
+    """Draw one zone-by-sensor heatmap per variable and save the figure."""
     data = json.loads(RESULTS_PATH.read_text())
     zones = list(data["zones"])
     sensors = list(data["sensors"])
     zone_labels = [data["zones"][z].replace(" (unidentified)", "") for z in zones]
-    sensor_labels = [s[-4:] for s in sensors]
+    sensor_labels = [s[-4:] for s in sensors]  # last 4 digits, as in the report
 
     fig, axes = plt.subplots(1, len(VARIABLES), figsize=(12, 4.6), sharey=True)
     for ax, variable in zip(axes, VARIABLES):
         matrix = data["results"][variable]["matrix"]
+        # Rows = zones, columns = sensors; missing pairs become NaN (grey cells).
         grid = np.array([[matrix[s][z] for s in sensors] for z in zones], dtype=float)
         image = ax.imshow(grid, cmap="RdBu_r", vmin=-COLOR_LIMIT, vmax=COLOR_LIMIT, aspect="auto")
         for i in range(len(zones)):
             for j in range(len(sensors)):
                 text = "no data" if np.isnan(grid[i, j]) else f"{grid[i, j]:+.2f}"
+                # White text on strongly coloured cells, black elsewhere, for contrast.
                 dark = not np.isnan(grid[i, j]) and abs(grid[i, j]) > 0.6 * COLOR_LIMIT
                 ax.text(j, i, text, ha="center", va="center", fontsize=9, color="white" if dark else "#0b0b0b")
         ax.set_xticks(range(len(sensors)), sensor_labels)

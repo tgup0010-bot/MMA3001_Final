@@ -96,6 +96,7 @@ GRIDS = {
 
 
 def load_table(env_long: pd.DataFrame, occupancy: pd.Series, bin_size: str = BIN_SIZE, rolling_window: int = 4):
+    """Supervised table for the main sensor at a given bin size and history length."""
     co2 = co2_series(env_long, SENSOR_ID, bin_size)
     table, _ = build_co2_supervised_dataset(co2, occupancy, rolling_window=rolling_window)
     return table
@@ -159,6 +160,7 @@ def bootstrap_vs(y, pred_a, pred_b) -> dict:
 def profile_workflow(env_path: Path, occ_path: Path) -> list[dict]:
     """cProfile the end-to-end baseline workflow; return the costliest calls."""
     def workflow():
+        """The whole pipeline from files to a fitted SVR, as one call for the profiler."""
         env_long = env_readings_raw_or_processed(env_path)
         occ = building_occupancy_series(resampled_occupancy_raw_or_processed(occ_path))
         table = load_table(env_long, occ)
@@ -178,6 +180,7 @@ def profile_workflow(env_path: Path, occ_path: Path) -> list[dict]:
 
 
 def main() -> None:
+    """Run tuning, selection, significance, cost, profiling and sensitivity; save everything."""
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     occupancy = building_occupancy_series(resampled_occupancy_raw_or_processed(OCC_RAW_PATH, BIN_SIZE))
     table = load_table(env_long, occupancy)
@@ -326,6 +329,7 @@ COLOURS = {"Linear Regression": "#2a78d6", "Decision Tree": "#eb6834", "SVR": "#
 
 
 def chart(results: dict, selected: str) -> None:
+    """Chart 17: tuning (a), accuracy against cost (b) and data requirement (c)."""
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.2))
     names = list(BUILDERS)
     tuning = results["tuning"]
