@@ -107,17 +107,17 @@ The model only forecasts; thresholds and ventilation commands belong to the BMS.
 
 ### 3.1 Methods and Why They Were Selected
 
-The forecast is a supervised regression from the nine inputs of Section 2.2 to next-bin CO₂. Four Week 5 methods were compared because they span the range from fully interpretable to highly flexible: **Linear Regression** (the baseline any other method must beat), a **Decision Tree** (non-linear, readable rules), **Support Vector Regression** (smooth non-linear fit from a convex optimisation) and a **multilayer perceptron** (the most flexible). A **persistence forecast** (next value equals current value) is the reference floor. The Week 6 **trapezoidal and Simpson's rules** compute cumulative CO₂ exposure and serve as an independent numerical check on the data pipeline.
+The forecast is a supervised regression from the nine inputs of Section 2.2 to next-bin CO₂. The four Week 5 methods were compared because they span fully interpretable to highly flexible: **Linear Regression**, a **Decision Tree**, **SVR** and a **neural network**, against a **persistence** floor (next value equals current value). The Week 6 **trapezoidal and Simpson's rules** compute cumulative CO₂ exposure and serve as an independent numerical check on the data pipeline.
 
-### 3.2 How Each Method Works
+### 3.2 How Each Method Works on This Problem
 
-**Linear Regression** fits $\hat{C}_{t+1} = \beta_0 + \sum_{i=1}^{9} \beta_i x_i$ by least squares. It cannot represent interactions, such as CO₂ rising faster on weekday mornings than on Sundays.
+Each learns, from the 13,608 training rows, a map from the nine inputs to CO₂ 15 minutes later. **Linear Regression** fits $\hat{C}_{t+1} = \beta_0 + \sum_{i=1}^{9} \beta_i x_i$ by least squares: in effect current CO₂ plus a share of the recent trend plus fixed time-of-day offsets, the one-step mass-balance solution with constant coefficients. *Here:* instant (36 FLOPs) and readable, but additive only (it cannot make the trend count more on weekday mornings), and squaring errors lets the rare spikes pull the fit.
 
-**Decision Tree Regression** splits the input space into rectangles by binary rules that minimise target variance; each leaf predicts the mean of its training rows, so its output is piecewise constant and cannot exceed the training range.
+**Decision Tree Regression** splits the inputs by yes/no rules (such as CO₂ above a threshold, before 08:00, weekend) chosen to minimise target variance; each leaf predicts its rows' mean. *Here:* readable and non-linear, but its output is a staircase that cannot exceed training values, and untuned (depth 8, leaves of one row) it memorised the training period and predicted spikes that never happened (Section 5.2).
 
-**SVR** finds the flattest function, in the space defined by the RBF kernel $K(\mathbf{x}_i, \mathbf{x}_j) = \exp(-\gamma \|\mathbf{x}_i - \mathbf{x}_j\|^2)$, that keeps residuals within a tube of half-width $\varepsilon$; $C$ penalises points outside it. Training is convex (one global optimum). Every training row on or outside the tube becomes a *support vector*, and each prediction sums a kernel term over all of them.
+**SVR** finds the flattest function, in the space defined by the RBF kernel $K(\mathbf{x}_i, \mathbf{x}_j) = \exp(-\gamma \|\mathbf{x}_i - \mathbf{x}_j\|^2)$, that keeps residuals within a tube of half-width $\varepsilon$; $C$ penalises points outside it in proportion to the miss, not its square. Training is convex (one global optimum); every row on or outside the tube becomes a *support vector*, and each prediction sums a kernel term over all of them. *Here:* a 2 ppm tube ignores the sensor's whole-ppm noise and the linear penalty stops rare spikes dominating the fit; the price is cost (10,437 support vectors) and opacity.
 
-**The neural network** is a multilayer perceptron with ReLU hidden layers and a linear output, trained with Adam. Its loss is non-convex, so the result depends on the random starting weights.
+**The neural network** is a multilayer perceptron with ReLU hidden layers and a linear output, trained with Adam and early stopping. *Here:* the most flexible, but 13,608 rows of mostly flat CO₂ give it little to exploit, its loss is non-convex, and its test MAE varies by 0.6 ppm with the random seed (Section 5.6).
 
 **Numerical integration.** Cumulative exposure $E = \int C\,dt$ (ppm·h) is computed with the trapezoidal rule on the actual, irregular reading times (error $O(h^2)$) and with composite Simpson's 1/3 rule on a regular grid (error $O(h^4)$, needs an even number of intervals). A gap-aware variant skips panels wider than 2 hours, so the rule never interpolates across a sensor outage.
 
@@ -141,7 +141,7 @@ All four models are scikit-learn `Pipeline` objects: a `StandardScaler` (fitted 
 | MLP training | Adam, early stopping (10% validation, patience 10), at most 500 iterations, seed 42 | same | Convergence criterion and repeatability |
 | Split | 80/20 chronological, cutoff 11 March 2026 | same | Training 13,608 rows, test 3,402 |
 
-The original values were set by hand; the selected values come from the tuning in Section 5.4. The original $\varepsilon = 0.5$ ppm is below the sensor's 1 ppm resolution (consecutive overnight readings differ by a median of 6 ppm), so almost every training row (12,807 of 13,608) became a support vector.
+Original values were set by hand, selected values by tuning (Section 5.4). The original $\varepsilon = 0.5$ ppm is below the sensor's 1 ppm resolution, so 12,807 of 13,608 training rows became support vectors.
 
 ### 3.5 Implementation
 
@@ -149,7 +149,7 @@ The code is a Python package, `src/occupancy`, with one module per task; scripts
 
 ### 3.6 Known Limitations of the Methods
 
-Linear Regression is limited to additive effects; the tree cannot extrapolate beyond its leaves; SVR's cost grows with its support vectors and its training between quadratically and cubically with rows; the neural network varies with the seed (Section 5.6). Simpson's rule needs equally spaced, gap-free data, and neither rule recovers unrecorded readings.
+Each model's limitations on this problem are given with it in Section 3.2: additive only (Linear Regression), a staircase that cannot extrapolate (tree), cost and opacity (SVR) and seed dependence (neural network). Simpson's rule needs equally spaced, gap-free data, and neither rule recovers unrecorded readings.
 
 ---
 
@@ -202,7 +202,7 @@ Test period: 3,402 rows. All four models beat persistence. SVR has the lowest MA
 
 The averages hide the important failure. On the 63 test rows where CO₂ rose by more than 30 ppm within 15 minutes, **no model predicted any of the rise**: the median share of the rise predicted is zero, and their error there (about 110 ppm) equals the persistence error. The figure shows the signature: every model follows a spike one step late, missing the rise and then over-predicting the fall (the predicted-vs-actual and residual plots in Appendix A show the same). The original SVR never predicted above 512 ppm and is biased low by 2.9 ppm. The models therefore beat persistence by smoothing normal fluctuations, not by anticipating releases, which come from events the inputs cannot see.
 
-![Five days of the test period at 15-minute resolution, original settings: every model follows each spike one step late, and the original Decision Tree also predicts spikes that never happened (full test period in Appendix A)](chart11b_spike_window.png){width=5.7in}
+![Five days of the test period at 15-minute resolution, original settings: every model follows each spike one step late, and the original Decision Tree also predicts spikes that never happened (full test period in Appendix A)](chart11b_spike_window.png){width=4.9in}
 
 ### 5.3 More Data and Other Rooms (RQ3)
 
@@ -221,7 +221,7 @@ Each method's settings were tuned by grid search (Section 3.4 lists the ranges) 
 | **SVR (selected)** | 7.49 | **7.26** | **8.11** | 0.372 |
 | Neural Network | 8.53 | 8.37 | 8.86 | 0.376 |
 
-SVR has the lowest cross-validated error, and in every one of the five folds (tuning curves in Appendix A). On the test period the selected SVR ($C$ = 100, $\varepsilon$ = 2 ppm, $\gamma$ = 0.03) improves on the original SVR by 0.24 ppm (95% interval 0.10 to 0.43) and beats every alternative: persistence by 1.78 ppm (1.32 to 2.30), Linear Regression by 0.91 ppm (0.68 to 1.16), the tuned tree by 0.82 ppm and the tuned neural network by 0.76 ppm (both intervals exclude zero). Tuning fixed the tree's overfitting (test $R^2$ 0.191 to 0.371). The selected design meets the acceptance criteria: it beats persistence, and its 8.1 ppm MAE is a sixth of the 50 ppm margin.
+SVR has the lowest cross-validated error, and in every one of the five folds (tuning curves in Appendix A). **Why SVR wins:** most 15-minute changes are a few ppm of sensor noise around a slowly moving level, broken by rare spikes no input foresees. SVR's 2 ppm tube ignores the noise and its linear penalty keeps the spikes from distorting the fit, so it has the lowest typical error (MAE); RMSE and $R^2$ are dominated by the unforeseeable spikes, so they barely separate the four models. On the test period the selected SVR ($C$ = 100, $\varepsilon$ = 2 ppm, $\gamma$ = 0.03) improves on the original SVR by 0.24 ppm (95% interval 0.10 to 0.43) and beats every alternative: persistence by 1.78 ppm (1.32 to 2.30), Linear Regression by 0.91 ppm (0.68 to 1.16), the tuned tree by 0.82 ppm and the tuned neural network by 0.76 ppm (both intervals exclude zero). Tuning fixed the tree's overfitting (test $R^2$ 0.191 to 0.371). The selected design meets the acceptance criteria: it beats persistence, and its 8.1 ppm MAE is a sixth of the 50 ppm margin.
 
 ### 5.5 Performance: Time, Memory and Operations
 
