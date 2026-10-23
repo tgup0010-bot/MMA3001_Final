@@ -1,7 +1,7 @@
 ============================= test session starts ==============================
 platform linux -- Python 3.13.16, pytest-9.1.1, pluggy-1.7.0 -- /usr/bin/python
 cachedir: .pytest_cache
-metadata: {'Python': '3.13.16', 'Platform': 'Linux-6.18.44-fc-v140-x86_64-with-glibc2.39', 'Packages': {'pytest': '9.1.1', 'pluggy': '1.7.0'}, 'Plugins': {'html': '4.2.0', 'metadata': '3.1.1', 'platformdirs': '4.13.3', 'anyio': '4.15.1'}, 'JAVA_HOME': '/usr/lib/jvm/java-21-openjdk-amd64'}
+metadata: {'Python': '3.13.16', 'Platform': 'Linux-6.18.44-fc-v153-x86_64-with-glibc2.39', 'Packages': {'pytest': '9.1.1', 'pluggy': '1.7.0'}, 'Plugins': {'html': '4.2.0', 'metadata': '3.1.1', 'platformdirs': '4.13.3', 'anyio': '4.15.1'}, 'JAVA_HOME': '/usr/lib/jvm/java-21-openjdk-amd64'}
 rootdir: .
 configfile: pyproject.toml
 testpaths: tests
@@ -111,4 +111,4 @@ tests/test_weather_comparison.py::test_compare_to_bom_only_uses_overlapping_date
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 ----- generated xml file: ./reports/test_report.xml -----
 - Generated html report: file://./reports/test_report.html -
-======================== 90 passed, 2 warnings in 2.96s ========================
+======================== 90 passed, 2 warnings in 4.58s ========================

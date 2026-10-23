@@ -3,7 +3,7 @@
 # committed documentation always matches the code:
 #   1. HTML API documentation (pdoc)      -> doc/api/
 #   2. pytest report (HTML, JUnit XML, text) -> reports/test_report.*
-#   3. Word version of the report (pandoc) -> doc/report/MMA3001_Project_Report.docx
+#   3. PDF of the report (pandoc + Chromium) -> doc/report/MMA3001_Project_Report.pdf
 #
 # Usage (from the repository root, after `pip install -e ".[dev]"`):
 #   bash tools/build_docs.sh
@@ -21,10 +21,13 @@ python -m pytest -v --junitxml=reports/test_report.xml --html=reports/test_repor
     | sed "s#$(pwd)#.#g" > reports/test_report.txt
 tail -n 1 reports/test_report.txt
 
-if command -v pandoc >/dev/null; then
-    # The existing Word file supplies the page layout and styles.
-    (cd doc/report && pandoc report.md -o MMA3001_Project_Report.docx --reference-doc=MMA3001_Project_Report.docx)
-    echo "Report -> doc/report/MMA3001_Project_Report.docx"
+# The PDF is the frozen final form of the report (Word files render
+# differently between versions). MathML keeps the equations exact.
+if command -v pandoc >/dev/null && node -e "require('playwright')" 2>/dev/null; then
+    (cd doc/report && pandoc report.md -s --mathml --css report.css --embed-resources \
+        --metadata pagetitle="MMA3001 Project Report" -o report.html)
+    node tools/report_to_pdf.js
+    rm -f doc/report/report.html
 else
-    echo "pandoc not found: Word report not rebuilt"
+    echo "pandoc or Node Playwright not found: report PDF not rebuilt"
 fi

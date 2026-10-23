@@ -29,3 +29,6 @@ Thumbs.db
 
 # --- Local Moodle-submission staging (not part of the repo itself) ---
 submission/
+
+# --- Intermediate HTML when building the report PDF ---
+doc/report/report.html

@@ -6,7 +6,7 @@ Individual project for MMA3001 Numerical Methods and Machine Learning, Monash Un
 
 **Purpose.** Ventilation systems usually raise outdoor airflow only after indoor CO₂ has crossed a setpoint. This project forecasts CO₂ **15 minutes ahead** from the last hour of sensor readings, zone occupancy and time of day, so a building management system could act earlier. It compares the four Week 5 regression methods against a persistence benchmark, tunes them by time-series cross-validation, measures their cost, and uses the Week 6 trapezoidal and Simpson's rules for cumulative exposure. Data: MMA3001 Dataset 2, Monash Smart Infrastructure occupancy and environmental sensors.
 
-The full report is [`doc/report/report.md`](doc/report/report.md) (Word version: [`MMA3001_Project_Report.docx`](doc/report/MMA3001_Project_Report.docx)).
+The full report is [`doc/report/MMA3001_Project_Report.pdf`](doc/report/MMA3001_Project_Report.pdf) (source: [`report.md`](doc/report/report.md)).
 
 ## Quick start
 
@@ -26,7 +26,7 @@ No data download is needed: run every command from the repository root and the s
 
 - Python 3.10 or later (CI tests 3.10 and 3.12 on every push).
 - Runtime: pandas, NumPy, scikit-learn, Matplotlib, openpyxl. Development: pytest, pytest-html, pdoc, Jupyter. All are declared in [`pyproject.toml`](pyproject.toml) and installed by `pip install -e ".[dev]"`.
-- Optional: pandoc, only to rebuild the Word report.
+- Optional: pandoc and Node Playwright (`npm install playwright`), only to rebuild the report PDF.
 
 ## Repository structure
 
@@ -45,7 +45,7 @@ MMA3001_Final/
 │   └── raw/                   Course raw files (not committed; see its README)
 ├── reports/                   Results (JSON, CSV) and the pytest report (HTML, XML, text)
 └── doc/
-    ├── report/                Report source, Word file and figures
+    ├── report/                Report PDF, its Markdown source and figures
     ├── api/                   HTML API documentation (pdoc)
     ├── walkthrough.ipynb      Notebook demonstrating the workflow using the package
     └── project_brief/         Assessment brief and dataset description
@@ -81,7 +81,7 @@ Run from the repository root. Each step reproduces the committed results (timing
 | Zone matching | `python scripts/sensor_matching_analysis.py`, then `plot_sensor_matching.py` | `reports/sensor_matching_results.json`, chart 10 | 6, App. C |
 | Weekday vs weekend | `python scripts/weekday_weekend_comparison.py` | `reports/weekday_weekend_results.json` | 5.1 |
 | Interactive demo | `python scripts/co2_demo.py` | console | 2.4 |
-| Rebuild docs, test report, Word report | `bash tools/build_docs.sh` | `doc/api/`, `reports/test_report.*`, `.docx` | |
+| Rebuild docs, test report, report PDF | `bash tools/build_docs.sh` | `doc/api/`, `reports/test_report.*`, report PDF | |
 
 ## Results
 
