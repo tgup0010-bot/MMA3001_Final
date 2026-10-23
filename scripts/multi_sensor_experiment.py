@@ -54,7 +54,7 @@ from occupancy.co2_regression import (
     co2_series,
 )
 from occupancy.env_sensors import LOCAL_TZ
-from occupancy.evaluation import chronological_split, evaluate_regression_predictions
+from occupancy.evaluation import block_bootstrap_ci, chronological_split, evaluate_regression_predictions
 from occupancy.processed_data import env_readings_raw_or_processed, receive_times_raw_or_processed
 from occupancy.sensor_intervals import find_unbroken_intervals, interval_audit
 
@@ -124,19 +124,6 @@ def run(label: str, train: pd.DataFrame, test: pd.DataFrame) -> dict:
     for name, m in results.items():
         print(f"  {name:28} MAE={m['mae']:6.3f}  RMSE={m['rmse']:6.3f}  R2={m['r2']:+.4f}")
     return {"n_train": len(train), "n_test": len(test), "results": results}, predictions
-
-
-def block_bootstrap_ci(diff: np.ndarray, seed: int = 0) -> tuple[float, float]:
-    """95% moving-block bootstrap CI for the mean of a paired difference."""
-    rng = np.random.default_rng(seed)
-    n = len(diff)
-    starts = np.arange(n - BOOTSTRAP_BLOCK)
-    means = [
-        diff[np.concatenate([np.arange(s, s + BOOTSTRAP_BLOCK) for s in rng.choice(starts, n // BOOTSTRAP_BLOCK)])].mean()
-        for _ in range(BOOTSTRAP_SAMPLES)
-    ]
-    lo, hi = np.percentile(means, [2.5, 97.5])
-    return float(lo), float(hi)
 
 
 def chart_sensor_intervals(env_long: pd.DataFrame, received: pd.DataFrame, sensors: list[str]) -> None:
@@ -221,7 +208,7 @@ def main() -> None:
         diff = np.abs(preds["baseline"][name] - te326["target"].values) - np.abs(
             preds["pooled"][name] - te326["target"].values
         )
-        lo, hi = block_bootstrap_ci(diff)
+        lo, hi = block_bootstrap_ci(diff, block=BOOTSTRAP_BLOCK, n_boot=BOOTSTRAP_SAMPLES)
         significance[name] = {"mae_improvement": float(diff.mean()), "ci95": [lo, hi]}
         print(f"  {name:28} {diff.mean():+.3f} ppm  [{lo:+.3f}, {hi:+.3f}]")
 

@@ -80,12 +80,31 @@ def build_svr_pipeline(**kwargs) -> Pipeline:
     """
     # Scaling is essential here: the RBF kernel uses Euclidean distance, so
     # unscaled CO2 (hundreds of ppm) would swamp the 0/1 weekend flag.
-    # epsilon=0.5 ppm: errors smaller than this cost nothing, roughly the
-    # sensor's noise. C=10 penalises errors outside the tube 10x harder
-    # than scikit-learn's default (C=1), i.e. less regularisation.
+    # These are the original settings (report Section 4): errors within
+    # epsilon=0.5 ppm cost nothing, which is below the sensor's 1 ppm
+    # resolution, so 94% of training rows become support vectors. Tuning
+    # (Section 6) selected SELECTED_SVR_PARAMS instead.
     defaults = dict(C=10.0, epsilon=0.5)
     defaults.update(kwargs)
     return Pipeline([("scale", StandardScaler()), ("regress", SVR(**defaults))])
+
+
+#: Settings chosen by 5-fold time-series cross-validation on the training
+#: period only (``scripts/optimisation_and_performance.py``, report Section 6).
+#: epsilon=2 ppm ignores errors up to twice the sensor's resolution; C=100
+#: and gamma=0.03 give a smoother, less regularised fit than the originals.
+SELECTED_SVR_PARAMS = {"C": 100.0, "epsilon": 2.0, "gamma": 0.03}
+
+
+def build_selected_pipeline() -> Pipeline:
+    """The final design: SVR with :data:`SELECTED_SVR_PARAMS`.
+
+    Returns:
+        An unfitted ``Pipeline``; selected over the other three methods and
+        the original SVR settings by cross-validated MAE, then confirmed on
+        the held-out test period (report Section 6).
+    """
+    return build_svr_pipeline(**SELECTED_SVR_PARAMS)
 
 
 def build_neural_network_regression_pipeline(**kwargs) -> Pipeline:

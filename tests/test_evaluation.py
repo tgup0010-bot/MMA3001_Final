@@ -49,3 +49,16 @@ def test_evaluate_regression_predictions_mean_forecast_gives_zero_r2():
     y_true = [400.0, 450.0, 500.0]
     metrics = evaluate_regression_predictions(y_true, [450.0, 450.0, 450.0])
     assert metrics["r2"] == pytest.approx(0.0)
+
+
+def test_block_bootstrap_interval_excludes_zero_for_a_clear_difference():
+    import numpy as np
+
+    from occupancy.evaluation import block_bootstrap_ci
+
+    rng = np.random.default_rng(1)
+    clear = 1.0 + rng.normal(0, 0.5, 2000)
+    lo, hi = block_bootstrap_ci(clear, block=50, n_boot=300)
+    assert 0 < lo < 1.0 < hi
+    lo, hi = block_bootstrap_ci(rng.normal(0, 0.5, 2000), block=50, n_boot=300)
+    assert lo < 0 < hi

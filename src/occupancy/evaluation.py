@@ -84,3 +84,39 @@ def evaluate_regression_predictions(y_true, y_pred) -> dict:
         "r2": r2_score(y_true, y_pred),
         "n": int(len(y_true)),
     }
+
+
+def block_bootstrap_ci(
+    diff: np.ndarray,
+    *,
+    block: int = 96,
+    n_boot: int = 2000,
+    seed: int = 0,
+) -> tuple[float, float]:
+    """95% moving-block bootstrap confidence interval for a mean difference.
+
+    Forecast errors 15 minutes apart are strongly correlated, so resampling
+    single rows would understate the uncertainty. Resampling whole blocks
+    (default 96 bins, one day) keeps that correlation inside each block.
+
+    Args:
+        diff: Paired per-row differences in time order, e.g.
+            ``|error of model A| - |error of model B|`` on the same test rows.
+        block: Block length in rows.
+        n_boot: Number of bootstrap resamples.
+        seed: Random seed, for repeatable intervals.
+
+    Returns:
+        ``(low, high)``: the 2.5th and 97.5th percentiles of the resampled
+        means. An interval that excludes zero means the difference is
+        unlikely to be chance.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(diff)
+    starts = np.arange(n - block)
+    means = [
+        diff[np.concatenate([np.arange(s, s + block) for s in rng.choice(starts, n // block)])].mean()
+        for _ in range(n_boot)
+    ]
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    return float(lo), float(hi)

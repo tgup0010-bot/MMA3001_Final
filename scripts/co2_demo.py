@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from occupancy.co2_models import build_svr_pipeline
+from occupancy.co2_models import build_selected_pipeline
 from occupancy.co2_regression import (
     NUMERIC_FEATURES_WITH_OCCUPANCY,
     build_co2_supervised_dataset,
@@ -41,7 +41,7 @@ DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sun
 
 
 def load_and_train():
-    print("Loading data and training the model (SVR, best of the 4 Week 5 methods)...")
+    print("Loading data and training the selected model (tuned SVR, report Section 6)...")
     env_long = env_readings_raw_or_processed(ENV_RAW_PATH)
     occ_resampled = resampled_occupancy_raw_or_processed(OCC_RAW_PATH, BIN_SIZE)
     occupancy = building_occupancy_series(occ_resampled)
@@ -51,7 +51,7 @@ def load_and_train():
     x_cols = list(NUMERIC_FEATURES_WITH_OCCUPANCY)
     train, test, cutoff = chronological_split(table, time_col="time", train_frac=0.8)
 
-    pipeline = build_svr_pipeline()
+    pipeline = build_selected_pipeline()
     pipeline.fit(train[x_cols], train["target"])
     print(f"Trained on {len(train):,} rows (up to {cutoff}), {len(test):,} held-out test rows.\n")
     return pipeline, x_cols, test, training_ranges(train)

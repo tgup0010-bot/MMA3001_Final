@@ -93,3 +93,27 @@ def test_richardson_order_check_reports_expected_reduction_factor():
     result = richardson_order_check(estimate_h=100.0, estimate_h_half=102.0, order=2)
     assert result["change"] == pytest.approx(2.0)
     assert result["expected_reduction_factor"] == 4  # 2**2, trapezoidal
+
+
+@pytest.mark.parametrize("rule, expected_ratio", [("trapezoidal", 4.0), ("simpson", 16.0)])
+def test_halving_the_step_reduces_error_at_the_theoretical_rate(rule, expected_ratio):
+    """Order of accuracy against an exact answer: integral of sin(t) on [0, pi] = 2.
+
+    Halving h should cut the error by 2**p: 4 for trapezoidal (p=2) and 16 for
+    Simpson's (p=4). This checks the implementations converge as the theory says,
+    not just that the bookkeeping in richardson_order_check is right.
+    """
+    import numpy as np
+
+    def error(n_intervals):
+        hours = np.linspace(0, np.pi, n_intervals + 1)
+        values = np.sin(hours)
+        if rule == "trapezoidal":
+            times = pd.Timestamp("2025-01-01", tz="UTC") + pd.to_timedelta(hours, unit="h")
+            estimate = trapezoidal_integral(times, values)
+        else:
+            estimate = simpsons_integral(values, bin_hours=np.pi / n_intervals)
+        return abs(estimate - 2.0)
+
+    ratio = error(16) / error(32)
+    assert ratio == pytest.approx(expected_ratio, rel=0.02)
